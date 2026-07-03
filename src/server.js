@@ -2,54 +2,61 @@ require('dotenv').config();
 const express = require('express');
 const { sendMessage, notifyOwner } = require('./whatsapp');
 const { chat } = require('./agent');
+const { formatSlot } = require('./calendar');
+const config = require('../config/client.json');
 
 const app = express();
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
-// ─── Webhook principal reçu depuis Twilio ─────────────────────────────────────
+// ─── Webhook principal ────────────────────────────────────────────────────────
 app.post('/webhook', async (req, res) => {
-  // Twilio envoie les données en form-urlencoded
-  const userPhone = req.body.From;   // ex: "whatsapp:+41791234567"
-  const userMessage = req.body.Body; // Le texte du message
+  const userPhone = req.body.From;
+  const userMessage = req.body.Body;
 
-  if (!userPhone || !userMessage) {
-    return res.status(400).send('Missing From or Body');
-  }
+  if (!userPhone || !userMessage) return res.status(400).send('Missing From or Body');
 
-  // Identifiant unique par utilisateur (numéro de téléphone)
   const userId = userPhone.replace('whatsapp:', '');
-
   console.log(`[${new Date().toLocaleTimeString()}] Message de ${userId}: "${userMessage}"`);
 
   try {
-    const { reply, isLeadReady, leadInfo } = await chat(userId, userMessage);
+    const { reply, isLeadReady, slotBooked, leadInfo } = await chat(userId, userMessage);
 
-    // Répond au client
     await sendMessage(userPhone, reply);
     console.log(`[${new Date().toLocaleTimeString()}] Réponse envoyée à ${userId}`);
 
-    // Si lead complet → alerte le patron
-    if (isLeadReady && leadInfo) {
+    // Notification patron si RDV réservé
+    if (slotBooked) {
+      const slotText = formatSlot(slotBooked, 0).replace('1️⃣ ', '');
+      const name = leadInfo?.name || 'Client';
+      const message =
+        `📅 Nouveau RDV enregistré !\n\n` +
+        `👤 ${name}\n` +
+        `📱 ${userId}\n` +
+        `🗓 ${slotText}\n\n` +
+        `RDV ajouté automatiquement dans votre agenda.`;
+      await notifyOwner({ name, city: '', rawText: message }, userId);
+      console.log(`[RDV] Confirmé pour ${name} - ${slotText}`);
+    }
+
+    // Notification patron si lead collecté (sans RDV)
+    if (isLeadReady && leadInfo && !slotBooked) {
       await notifyOwner(leadInfo, userId);
-      console.log(`[LEAD] Patron notifié pour ${leadInfo.name} (${leadInfo.city})`);
+      console.log(`[LEAD] Patron notifié pour ${leadInfo.name}`);
     }
 
   } catch (error) {
     console.error('Erreur agent IA :', error);
-
-    // En cas d'erreur, envoie un message de secours au client
     await sendMessage(
       userPhone,
       'Désolé, une erreur est survenue. Veuillez rappeler directement au numéro habituel.'
     );
   }
 
-  // Twilio attend une réponse 200
   res.status(200).send('OK');
 });
 
-// ─── Route de santé (pour vérifier que le serveur tourne) ──────────────────
+// ─── Health check ─────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });

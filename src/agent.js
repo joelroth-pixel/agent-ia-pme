@@ -1,10 +1,11 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const config = require('../config/client.json');
 const memory = require('./memory');
+const calendar = require('./calendar');
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-// Construit le prompt système à partir du fichier config client
+// Construit le prompt système
 function buildSystemPrompt() {
   const { business, service_area, hours, services, pricing, faq, agent } = config;
 
@@ -39,72 +40,114 @@ ${pricingText}
 QUESTIONS FRÉQUENTES :
 ${faqText}
 
+GESTION DES RENDEZ-VOUS :
+- Quand un client veut prendre un RDV, réponds UNIQUEMENT par le tag : [SHOW_SLOTS]
+- Quand le client choisit un créneau (répond "1", "2" ou "3"), réponds UNIQUEMENT par : [BOOK_SLOT:X] où X est le numéro choisi
+- Quand tu as collecté le nom du client pour le RDV, inclus [CLIENT_NAME:Prénom Nom] dans ta réponse
+- Ne propose jamais de dates ou d'heures toi-même — utilise toujours [SHOW_SLOTS]
+
 RÈGLES IMPORTANTES :
 1. Réponds toujours en français, de manière concise (3-5 phrases max).
-2. Ne promets jamais un prix fixe sans avoir vu le problème — oriente vers un devis gratuit.
-3. Si le client a un problème urgent (fuite active, eau coupée), propose immédiatement un contact direct avec ${business.owner}.
-4. Quand tu as collecté le nom, le problème et la ville du client, termine ta réponse par le tag exact : [LEAD_COLLECTÉ]
-5. Ne réponds qu'aux sujets liés à la plomberie et aux services de l'entreprise.
-6. Si tu ne sais pas répondre, dis-le honnêtement et propose de rappeler le client.`;
+2. Ne promets jamais un prix fixe sans avoir vu le problème.
+3. Si le client a un problème urgent (fuite active, eau coupée), propose immédiatement un contact direct.
+4. Quand tu as collecté le nom, le problème et la ville du client (sans RDV), termine par : [LEAD_COLLECTÉ]
+5. Ne réponds qu'aux sujets liés aux services de l'entreprise.`;
 }
 
-// Détecte si l'IA a signalé qu'un lead est complet
-function extractLeadSignal(text) {
-  return text.includes('[LEAD_COLLECTÉ]');
+function extractTag(text, tag) {
+  const regex = new RegExp(`\\[${tag}(?::([^\\]]+))?\\]`);
+  const match = text.match(regex);
+  return match ? (match[1] || true) : null;
 }
 
-// Nettoie le tag interne avant d'envoyer au client
 function cleanResponse(text) {
-  return text.replace('[LEAD_COLLECTÉ]', '').trim();
-}
-
-// Tente d'extraire nom + ville depuis les derniers messages
-function extractLeadInfo(userId) {
-  const messages = memory.getMessages(userId);
-  const fullText = messages
-    .filter(m => m.role === 'user')
-    .map(m => m.content)
-    .join(' ');
-
-  // Extraction simple basée sur des patterns courants
-  const nameMatch = fullText.match(/(?:je m'appelle|c'est|mon nom est|bonjour,? )\s*([A-ZÀ-Ÿa-zà-ÿ\-]+(?:\s[A-ZÀ-Ÿa-zà-ÿ\-]+)?)/i);
-  const cityMatch = fullText.match(/(?:à|de|habite|sur|dans|quartier|commune de)\s+([A-ZÀ-Ÿa-zà-ÿ\s\-]+?)(?:\.|,|$)/i);
-
-  return {
-    name: nameMatch ? nameMatch[1] : 'Non précisé',
-    city: cityMatch ? cityMatch[1].trim() : 'Non précisé',
-    rawText: fullText.slice(-300) // Derniers 300 caractères pour le résumé
-  };
+  return text
+    .replace(/\[SHOW_SLOTS\]/g, '')
+    .replace(/\[BOOK_SLOT:\d\]/g, '')
+    .replace(/\[LEAD_COLLECTÉ\]/g, '')
+    .replace(/\[CLIENT_NAME:[^\]]+\]/g, '')
+    .trim();
 }
 
 async function chat(userId, userMessage) {
-  // Sauvegarde le message utilisateur
   memory.addMessage(userId, 'user', userMessage);
 
   const messages = memory.getMessages(userId);
 
-  // Appel à Claude
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 1000,
     system: buildSystemPrompt(),
-    messages: messages
+    messages: messages,
   });
 
   const rawReply = response.content[0].text;
-  const isLeadReady = extractLeadSignal(rawReply);
-  const cleanReply = cleanResponse(rawReply);
 
-  // Sauvegarde la réponse de l'agent
-  memory.addMessage(userId, 'assistant', cleanReply);
+  // Détecte les tags d'action
+  const showSlots = extractTag(rawReply, 'SHOW_SLOTS');
+  const bookSlot = extractTag(rawReply, 'BOOK_SLOT');
+  const isLeadReady = extractTag(rawReply, 'LEAD_COLLECTÉ');
+  const clientName = extractTag(rawReply, 'CLIENT_NAME');
 
-  // Si lead détecté, extrait les infos
-  if (isLeadReady) {
-    const leadInfo = extractLeadInfo(userId);
-    memory.updateLead(userId, leadInfo);
+  let finalReply = cleanResponse(rawReply);
+  let slotBooked = null;
+
+  // Affiche les créneaux disponibles
+  if (showSlots) {
+    try {
+      const slots = await calendar.getAvailableSlots(3);
+      memory.updateLead(userId, { pendingSlots: slots });
+
+      if (slots.length === 0) {
+        finalReply = "Je n'ai malheureusement aucun créneau disponible dans les 7 prochains jours. Voulez-vous que je transmette votre demande directement à " + config.business.owner + " ?";
+      } else {
+        const slotsText = slots.map((s, i) => calendar.formatSlot(s, i)).join('\n');
+        finalReply = `Voici les prochains créneaux disponibles :\n\n${slotsText}\n\nRépondez avec le numéro de votre choix (1, 2 ou 3) 👆`;
+      }
+    } catch (err) {
+      console.error('Erreur Calendar:', err);
+      finalReply = "Je rencontre un problème avec l'agenda. Voulez-vous que je transmette votre demande directement au patron ?";
+    }
   }
 
-  return { reply: cleanReply, isLeadReady, leadInfo: isLeadReady ? extractLeadInfo(userId) : null };
+  // Réserve un créneau
+  if (bookSlot) {
+    const slotNumber = parseInt(bookSlot);
+    const session = memory.getLead(userId);
+    const slots = session.pendingSlots;
+
+    if (slots && slots[slotNumber - 1]) {
+      const chosenSlot = slots[slotNumber - 1];
+      const name = clientName || session.name || 'Client';
+      const phone = userId;
+      const description = session.rawText || 'Demande via WhatsApp';
+
+      try {
+        await calendar.createAppointment(chosenSlot, name, phone, description);
+        const formattedSlot = calendar.formatSlot(chosenSlot, 0).replace('1️⃣ ', '');
+        finalReply = `✅ RDV confirmé !\n\n📅 ${formattedSlot}\n👤 Au nom de : ${name}\n\n${config.business.owner} vous contactera si nécessaire. À bientôt !`;
+        slotBooked = chosenSlot;
+        memory.updateLead(userId, { rdvConfirmed: true, rdvSlot: chosenSlot });
+      } catch (err) {
+        console.error('Erreur création RDV:', err);
+        finalReply = "Je n'ai pas pu enregistrer le RDV. Voulez-vous réessayer ou préférez-vous appeler directement ?";
+      }
+    }
+  }
+
+  // Met à jour le nom si détecté
+  if (clientName) {
+    memory.updateLead(userId, { name: clientName });
+  }
+
+  memory.addMessage(userId, 'assistant', finalReply);
+
+  return {
+    reply: finalReply,
+    isLeadReady: !!isLeadReady,
+    slotBooked,
+    leadInfo: isLeadReady ? memory.getLead(userId) : null,
+  };
 }
 
 module.exports = { chat };
