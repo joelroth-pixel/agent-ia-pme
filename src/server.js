@@ -1,5 +1,6 @@
 require('dotenv').config();
 const { envoyerRapport } = require('./rapport');
+const { ajouterProspect, demarrerRelances } = require('./relance');
 const express = require('express');
 const { sendMessage, notifyOwner } = require('./whatsapp');
 const { chat } = require('./agent');
@@ -24,7 +25,7 @@ function planifierRapport() {
   console.log('[RAPPORT] Prochain rapport : ' + prochainLundi.toLocaleString('fr-CH'));
 }
 planifierRapport();
-
+demarrerRelances();
 app.post('/webhook', async (req, res) => {
   const userPhone = req.body.From;
   const userMessage = req.body.Body;
@@ -39,6 +40,7 @@ app.post('/webhook', async (req, res) => {
     if (isLeadReady && leadInfo) {
       global.statsHebdo.prospects++;
       global.statsHebdo.prospectsList.push({ name: leadInfo.name || 'Inconnu', phone: userId });
+      ajouterProspect(userId, leadInfo.name, leadInfo.rawText);
     }
   } catch (error) {
     console.error('Erreur agent IA :', error);
