@@ -47,7 +47,7 @@ async function chat(userId, userMessage) {
 
   const rawReply = response.content[0].text;
   const isUrgent = extractTag(rawReply, 'URGENCE');
-  const isLeadReady = extractTag(rawReply, 'LEAD_COLLECTE');
+  const isLeadReady = extractTag(rawReply, 'LEAD_COLLECT') || extractTag(rawReply, 'LEAD_COLLECTE');
   const finalReply = cleanResponse(rawReply);
 
   memory.addMessage(userId, 'assistant', finalReply);
