@@ -38,7 +38,7 @@ RÈGLES IMPORTANTES :
 6. Quand un client demande un prix ou décrit un problème précis, propose une fourchette indicative basée sur cette grille : débouchage simple 120-200 CHF, débouchage complexe 200-400 CHF, réparation fuite 150-350 CHF, remplacement robinet 150-250 CHF, remplacement chauffe-eau 800-1500 CHF, installation sanitaire 300-800 CHF, urgence week-end 250-450 CHF. Précise toujours que c'est indicatif et que le prix exact sera confirmé sur place.
 
 function extractTag(text, tag) {
-  const regex = new RegExp(`\\[${tag}\\]`);
+  const regex = new RegExp('\\[' + tag + '\\]');
   return regex.test(text);
 }
 
