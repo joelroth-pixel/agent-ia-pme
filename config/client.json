@@ -26,8 +26,17 @@
     "deplacement": "80 CHF (offert si devis accepté)",
     "tarif_horaire": "120 CHF/heure",
     "urgence_nuit": "180 CHF/heure (20h–7h)",
-    "devis": "Gratuit sur place"
-  },
+    "devis": "Gratuit sur place",
+    "grille_devis": {
+        "debouchage_simple": "120-200 CHF",
+        "debouchage_complexe": "200-400 CHF",
+        "reparation_fuite": "150-350 CHF",
+        "remplacement_robinet": "150-250 CHF",
+        "remplacement_chauffe_eau": "800-1500 CHF",
+        "installation_sanitaire": "300-800 CHF",
+        "urgence_weekend": "250-450 CHF"
+    }
+},
   "faq": [
     {
       "question": "Intervenez-vous le week-end ?",
