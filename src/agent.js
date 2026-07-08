@@ -53,8 +53,9 @@ async function chat(userId, userMessage) {
   memory.addMessage(userId, 'assistant', finalReply);
 
   if (isUrgent) {
-    const urgentMsg = '🚨 URGENCE CLIENT !\n\nNumero : ' + userId + '\nMessage : ' + userMessage + '\n\nA rappeler immediatement !';
-    await notifyOwner({ name: 'URGENCE', city: '', rawText: urgentMsg }, userId);
+    const leadInfo = extractLeadInfo(userId);
+    const urgentMsg = '🚨 URGENCE CLIENT !\n\nMessage : ' + userMessage + '\n\nA rappeler immediatement !';
+    await notifyOwner({ name: leadInfo.name, city: leadInfo.city, rawText: urgentMsg }, userId);
   }
 
   if (isLeadReady && !isUrgent) {
