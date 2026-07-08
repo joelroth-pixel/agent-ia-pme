@@ -39,12 +39,6 @@ app.post('/webhook', async (req, res) => {
       console.log(`[RDV] Confirmé pour ${name} - ${slotText}`);
     }
 
-    // Notification patron si lead collecté (sans RDV)
-    if (isLeadReady && leadInfo && !slotBooked) {
-      await notifyOwner(leadInfo, userId);
-      console.log(`[LEAD] Patron notifié pour ${leadInfo.name}`);
-    }
-
   } catch (error) {
     console.error('Erreur agent IA :', error);
     await sendMessage(
