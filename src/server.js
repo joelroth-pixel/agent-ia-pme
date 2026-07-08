@@ -46,7 +46,10 @@ app.post('/webhook', async (req, res) => {
   }
   res.status(200).send('OK');
 });
-
+app.get('/rapport-test', async (req, res) => {
+  await envoyerRapport();
+  res.json({ status: 'rapport envoye' });
+});
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
