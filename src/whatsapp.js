@@ -24,7 +24,7 @@ async function notifyOwner(leadInfo, userPhone) {
     `👤 Nom : ${name}\n` +
     `📍 Ville : ${city}\n` +
     `📱 Numéro : ${userPhone}\n\n` +
-    `💬 Résumé de la conversation :\n"${rawText.slice(0, 200)}..."\n\n` +
+    `💬 Résumé de la conversation :\n"${(rawText || '').slice(0, 200)}..."\n\n` +
     `→ À rappeler dès que possible.`;
 
   await sendMessage(ownerNumber, message);
