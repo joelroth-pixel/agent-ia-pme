@@ -2,7 +2,7 @@ const { google } = require('googleapis');
 const path = require('path');
 
 // Charge les credentials du compte de service
-const CREDENTIALS_PATH = path.join(__dirname, '../config/google-credentials.json');
+
 const CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || 'joel.rothlisberger.2009@gmail.com';
 
 // Durée par défaut d'un RDV en minutes
@@ -14,7 +14,7 @@ const WORK_END = 18;
 
 function getAuthClient() {
   const auth = new google.auth.GoogleAuth({
-    keyFile: CREDENTIALS_PATH,
+    credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON),
     scopes: ['https://www.googleapis.com/auth/calendar'],
   });
   return auth;
