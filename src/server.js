@@ -48,6 +48,15 @@ app.post('/webhook', async (req, res) => {
   }
   res.status(200).send('OK');
 });
+app.get('/relance-test', async (req, res) => {
+  const { verifierRelances } = require('./relance');
+  // Force la relance en mettant le timestamp à 25h dans le passé
+  for (const userId in global.prospectsEnAttente) {
+    global.prospectsEnAttente[userId].timestamp = Date.now() - 25 * 60 * 60 * 1000;
+  }
+  await verifierRelances();
+  res.json({ status: 'relances verifiees', prospects: global.prospectsEnAttente });
+});
 app.get('/rapport-test', async (req, res) => {
   await envoyerRapport();
   res.json({ status: 'rapport envoye' });
