@@ -1,6 +1,7 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const config = require('../config/client.json');
 const memory = require('./memory');
+const calendar = require('./calendar');
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
