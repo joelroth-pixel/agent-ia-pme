@@ -45,4 +45,4 @@ function demarrerRelances() {
   console.log('[RELANCE] Système de relance démarré');
 }
 
-module.exports = { ajouterProspect, demarrerRelances };
+module.exports = { ajouterProspect, demarrerRelances, verifierRelances };
