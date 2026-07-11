@@ -23,11 +23,9 @@ async function verifierRelances() {
     const prospect = global.prospectsEnAttente[userId];
     if (!prospect.relanced && (maintenant - prospect.timestamp) >= vingtQuatreHeures) {
       try {
-        const message =
-          'Bonjour ' + prospect.name + ', c est l assistant de ' + config.business.name + '. ' +
-          'Vous nous avez contacte hier concernant ' + prospect.problem + '. ' +
-          config.business.owner + ' est disponible pour vous aider. ' +
-          'Souhaitez-vous qu on planifie une intervention ?';
+        const message = config.business.message_relance
+          .replace('{nom}', prospect.name)
+          .replace('{entreprise}', config.business.name);
 
         await sendMessage('whatsapp:' + userId, message);
         prospect.relanced = true;
