@@ -26,6 +26,14 @@ function updateLead(userId, data) {
   session.lead = { ...session.lead, ...data };
 }
 
+function isAlreadyNotified(userId) {
+  return getHistory(userId).notified === true;
+}
+
+function markAsNotified(userId) {
+  getHistory(userId).notified = true;
+}
+
 function getLead(userId) {
   return getHistory(userId).lead;
 }
@@ -38,4 +46,4 @@ function clearSession(userId) {
   conversations.delete(userId);
 }
 
-module.exports = { addMessage, updateLead, getLead, getMessages, clearSession };
+module.exports = { addMessage, updateLead, getLead, getMessages, clearSession, isAlreadyNotified, markAsNotified };

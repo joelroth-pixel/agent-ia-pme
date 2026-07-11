@@ -2,6 +2,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const config = require('../config/client.json');
 const memory = require('./memory');
 const { notifyOwner } = require('./whatsapp');
+const { isAlreadyNotified, markAsNotified } = require('./memory');
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -60,10 +61,11 @@ async function chat(userId, userMessage) {
     if (global.statsHebdo) global.statsHebdo.urgences++;
   }
 
-  if (isLeadReady && !isUrgent) {
+  if (isLeadReady && !isUrgent && !isAlreadyNotified(userId)) {
     const leadInfo = extractLeadInfo(userId, rawReply);
     memory.updateLead(userId, leadInfo);
     await notifyOwner(leadInfo, userId);
+    markAsNotified(userId);
   }
 
   return {
