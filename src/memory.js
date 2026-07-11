@@ -34,6 +34,14 @@ function markAsNotified(userId) {
   getHistory(userId).notified = true;
 }
 
+function isUrgenceNotified(userId) {
+  return getHistory(userId).urgenceNotified === true;
+}
+
+function markUrgenceNotified(userId) {
+  getHistory(userId).urgenceNotified = true;
+}
+
 function getLead(userId) {
   return getHistory(userId).lead;
 }
@@ -46,4 +54,4 @@ function clearSession(userId) {
   conversations.delete(userId);
 }
 
-module.exports = { addMessage, updateLead, getLead, getMessages, clearSession, isAlreadyNotified, markAsNotified };
+module.exports = { addMessage, updateLead, getLead, getMessages, clearSession, isAlreadyNotified, markAsNotified, isUrgenceNotified, markUrgenceNotified };
