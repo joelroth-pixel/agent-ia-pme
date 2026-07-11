@@ -2,10 +2,10 @@ require('dotenv').config();
 const { envoyerRapport } = require('./rapport');
 const { ajouterProspect, demarrerRelances } = require('./relance');
 const { connectDB, incrementStats } = require('./database');
+const { getClientConfig } = require('../clients/index');
 const express = require('express');
 const { sendMessage, notifyOwner } = require('./whatsapp');
 const { chat } = require('./agent');
-const config = require('../config/client.json');
 
 const app = express();
 app.use(express.urlencoded({ extended: false }));
@@ -34,15 +34,23 @@ connectDB().then(() => {
 app.post('/webhook', async (req, res) => {
   const userPhone = req.body.From;
   const userMessage = req.body.Body;
+  const twilioNumber = req.body.To;
+
   if (!userPhone || !userMessage) return res.status(400).send('Missing From or Body');
+
+  const config = getClientConfig(twilioNumber);
+  if (!config) return res.status(404).send('Client not found');
+
   const userId = userPhone.replace('whatsapp:', '');
   global.statsHebdo.messages++;
   await incrementStats('messages');
-  console.log('[' + new Date().toLocaleTimeString() + '] Message de ' + userId + ': ' + userMessage);
+  console.log('[' + new Date().toLocaleTimeString() + '] Message de ' + userId + ' pour ' + twilioNumber);
+
   try {
-    const { reply, isLeadReady, leadInfo } = await chat(userId, userMessage);
+    const { reply, isLeadReady, leadInfo } = await chat(userId, userMessage, config);
     await sendMessage(userPhone, reply);
     console.log('[' + new Date().toLocaleTimeString() + '] Reponse envoyee a ' + userId);
+
     if (isLeadReady && leadInfo) {
       global.statsHebdo.prospects++;
       global.statsHebdo.prospectsList.push({ name: leadInfo.name || 'Inconnu', phone: userId });

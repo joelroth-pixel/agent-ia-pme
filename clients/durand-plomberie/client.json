@@ -1,0 +1,61 @@
+{
+  "business": {
+    "name": "Plomberie Durand",
+    "owner": "Marc Durand",
+    "phone": "+41774381876",
+    "whatsapp_number": "+41774381876",
+    "message_relance": "Bonjour {nom}, c'est l'assistant de {entreprise}. Vous nous avez contactés concernant {probleme}. Nous sommes disponibles pour intervenir — souhaitez-vous planifier une visite ?"
+  },
+  "service_area": "Lausanne et environs (rayon 20 km)",
+  "hours": {
+    "lundi": "07h30 – 18h00",
+    "mardi": "07h30 – 18h00",
+    "mercredi": "07h30 – 18h00",
+    "jeudi": "07h30 – 18h00",
+    "vendredi": "07h30 – 17h00",
+    "samedi": "08h00 – 12h00",
+    "dimanche": "Fermé (urgences uniquement)"
+  },
+  "services": [
+    "Débouchage de canalisations",
+    "Réparation de fuites",
+    "Installation sanitaire",
+    "Remplacement chauffe-eau",
+    "Urgences 24h/24"
+  ],
+  "pricing": {
+    "deplacement": "80 CHF (offert si devis accepté)",
+    "tarif_horaire": "120 CHF/heure",
+    "urgence_nuit": "180 CHF/heure (20h–7h)",
+    "devis": "Gratuit sur place",
+    "grille_devis": {
+        "debouchage_simple": "120-200 CHF",
+        "debouchage_complexe": "200-400 CHF",
+        "reparation_fuite": "150-350 CHF",
+        "remplacement_robinet": "150-250 CHF",
+        "remplacement_chauffe_eau": "800-1500 CHF",
+        "installation_sanitaire": "300-800 CHF",
+        "urgence_weekend": "250-450 CHF"
+    }
+},
+  "faq": [
+    {
+      "question": "Intervenez-vous le week-end ?",
+      "answer": "Le samedi matin de 8h à 12h, oui. Le dimanche uniquement pour les urgences (fuite active, eau coupée)."
+    },
+    {
+      "question": "Combien coûte un débouchage ?",
+      "answer": "Cela dépend de l'accessibilité et de la nature du bouchon. Le tarif horaire est de 120 CHF, la plupart des débouchages simples prennent 1 à 2h. Je vous fais un devis gratuit sur place."
+    },
+    {
+      "question": "Êtes-vous disponible rapidement ?",
+      "answer": "Pour les urgences (fuite, dégât des eaux), j'interviens généralement dans les 2 à 4 heures. Pour les travaux planifiés, comptez 3 à 7 jours."
+    }
+  ],
+  "agent": {
+    "name": "Assistant Plomberie Durand",
+    "language": "fr",
+    "tone": "professionnel mais chaleureux",
+    "collect_lead_after_messages": 3
+  }
+}

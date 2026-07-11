@@ -1,12 +1,11 @@
 const Anthropic = require('@anthropic-ai/sdk');
-const config = require('../config/client.json');
 const memory = require('./memory');
 const { notifyOwner } = require('./whatsapp');
 const { isAlreadyNotified, markAsNotified, isUrgenceNotified, markUrgenceNotified } = require('./memory');
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-function buildSystemPrompt() {
+function buildSystemPrompt(config) {
   const { business, service_area, hours, services, pricing, faq, agent } = config;
   const hoursText = Object.entries(hours).map(([day, h]) => '  - ' + day + ' : ' + h).join('\n');
   const servicesText = services.map(s => '  - ' + s).join('\n');
@@ -36,14 +35,14 @@ function extractLeadInfo(userId, rawReply) {
   return { name, city, rawText: fullText.slice(-300) };
 }
 
-async function chat(userId, userMessage) {
+async function chat(userId, userMessage, config) {
   memory.addMessage(userId, 'user', userMessage);
   const messages = memory.getMessages(userId);
 
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 500,
-    system: buildSystemPrompt(),
+    system: buildSystemPrompt(config),
     messages: messages,
   });
 
@@ -58,7 +57,7 @@ async function chat(userId, userMessage) {
   if (isUrgent && !isUrgenceNotified(userId)) {
     const leadInfo = extractLeadInfo(userId, rawReply);
     const urgentMsg = 'URGENCE CLIENT !\n\nMessage : ' + userMessage + '\n\nA rappeler immediatement !';
-    await notifyOwner({ name: leadInfo.name, city: leadInfo.city, rawText: urgentMsg }, userId);
+    await notifyOwner({ name: leadInfo.name, city: leadInfo.city, rawText: urgentMsg }, userId, config);
     markUrgenceNotified(userId);
     if (global.statsHebdo) global.statsHebdo.urgences++;
   }
@@ -66,14 +65,14 @@ async function chat(userId, userMessage) {
   if (isLeadReady && !isUrgent && !isAlreadyNotified(userId)) {
     const leadInfo = extractLeadInfo(userId, rawReply);
     memory.updateLead(userId, leadInfo);
-    await notifyOwner(leadInfo, userId);
+    await notifyOwner(leadInfo, userId, config);
     markAsNotified(userId);
   }
 
   if (isTransfert) {
     const leadInfo = extractLeadInfo(userId, rawReply);
     const transfertMsg = 'DEMANDE DE TRANSFERT !\n\nUn client souhaite parler directement au patron.\n\nNumero : ' + userId + '\nDernier message : ' + userMessage;
-    await notifyOwner({ name: leadInfo.name, city: leadInfo.city, rawText: transfertMsg }, userId);
+    await notifyOwner({ name: leadInfo.name, city: leadInfo.city, rawText: transfertMsg }, userId, config);
   }
 
   return {
