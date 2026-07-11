@@ -27,9 +27,10 @@ function extractLeadInfo(userId) {
   const messages = memory.getMessages(userId);
   const fullText = messages.filter(m => m.role === 'user').map(m => m.content).join(' ');
   const nameMatch = fullText.match(/(?:je m.appelle|c.est|mon nom est)\s*([A-Za-z\-]+(?:\s[A-Za-z\-]+)?)/i);
+  const cityMatch = fullText.match(/(?:je viens de|j habite|je suis a|je suis à|à|a)\s*([A-Za-zÀ-ÿ\-]+)/i);
   return {
     name: nameMatch ? nameMatch[1] : 'Client',
-    city: 'Non precise',
+    city: cityMatch ? cityMatch[1] : 'Non precise',
     rawText: fullText.slice(-300)
   };
 }
