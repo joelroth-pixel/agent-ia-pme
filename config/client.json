@@ -4,7 +4,7 @@
     "owner": "Marc Durand",
     "phone": "+41774381876",
     "whatsapp_number": "+41774381876",
-    "message_relance": "Bonjour {nom}, c'est l'assistant de {entreprise}. Vous nous avez contactés récemment et nous souhaitons savoir si vous avez toujours besoin d'aide. N'hésitez pas à nous répondre !"
+    "message_relance": "Bonjour {nom}, c'est l'assistant de {entreprise}. Vous nous avez contactés concernant {probleme}. Nous sommes disponibles pour intervenir — souhaitez-vous planifier une visite ?"
   },
   "service_area": "Lausanne et environs (rayon 20 km)",
   "hours": {

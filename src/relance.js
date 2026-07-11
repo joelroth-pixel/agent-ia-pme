@@ -25,7 +25,8 @@ async function verifierRelances() {
       try {
         const message = config.business.message_relance
           .replace('{nom}', prospect.name)
-          .replace('{entreprise}', config.business.name);
+          .replace('{entreprise}', config.business.name)
+          .replace('{probleme}', prospect.problem || 'votre demande');
 
         await sendMessage('whatsapp:' + userId, message);
         prospect.relanced = true;
