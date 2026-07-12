@@ -52,7 +52,7 @@ async function envoyerPushNotification(clientId, title, body) {
 
 connectDB().then(async () => {
   const configs = getAllConfigs();
-  const clientId = req.clientId || Object.keys(configs)[0];
+  const clientId = Object.keys(configs)[0];
   const settings = await getSettings(clientId);
   global.vacancesMode = settings.vacancesMode || false;
   console.log('[SETTINGS] Mode vacances charge : ' + global.vacancesMode);
