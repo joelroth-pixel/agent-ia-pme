@@ -204,7 +204,7 @@
   }
 
   function loadData() {
-    return fetch(API_URL + '/dashboard/data', {
+    fetch(API_URL + '/dashboard/data', {
       headers: { 'Authorization': 'Bearer ' + authToken }
     })
     .then(r => {
