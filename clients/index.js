@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const clientsMap = {
-  'whatsapp:+14155238886': 'durand-plomberie'
+  'whatsapp:+14155238886': 'durand-plomberie',
   'whatsapp:+14155238887': 'martin-electricite'
 };
 
