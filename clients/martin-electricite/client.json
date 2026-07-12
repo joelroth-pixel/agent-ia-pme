@@ -1,0 +1,46 @@
+{
+  "business": {
+    "name": "Electricite Martin",
+    "owner": "Pierre Martin",
+    "phone": "+41791234567",
+    "whatsapp_number": "+41791234567",
+    "dashboard_password": "martin2026",
+    "numeros_internes": [],
+    "message_lpd": "Bonjour, je suis l'assistant de {entreprise}. Ce service est automatise 24h/24. Vos donnees sont traitees conformement a la LPD suisse. Envoyez STOP pour ne plus etre contacte.",
+    "message_relance": "Bonjour {nom}, c'est l'assistant de {entreprise}. Vous nous avez contactes concernant {probleme}. Nous sommes disponibles - souhaitez-vous planifier une visite ?"
+  },
+  "service_area": "Geneve et environs",
+  "hours": {
+    "lundi": "07h30 - 18h00",
+    "mardi": "07h30 - 18h00",
+    "mercredi": "07h30 - 18h00",
+    "jeudi": "07h30 - 18h00",
+    "vendredi": "07h30 - 17h00",
+    "samedi": "08h00 - 12h00",
+    "dimanche": "Ferme"
+  },
+  "services": [
+    "Installation electrique",
+    "Depannage electrique",
+    "Urgences 24h/24"
+  ],
+  "pricing": {
+    "deplacement": "90 CHF",
+    "tarif_horaire": "130 CHF/heure",
+    "urgence_nuit": "200 CHF/heure",
+    "devis": "Gratuit sur place",
+    "grille_devis": {}
+  },
+  "faq": [
+    {
+      "question": "Intervenez-vous le week-end ?",
+      "answer": "Le samedi matin uniquement. Le dimanche pour les urgences."
+    }
+  ],
+  "agent": {
+    "name": "Assistant Electricite Martin",
+    "language": "fr",
+    "tone": "professionnel",
+    "collect_lead_after_messages": 3
+  }
+}
