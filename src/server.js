@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { envoyerRapport } = require('./rapport');
 const { ajouterProspect, demarrerRelances } = require('./relance');
-const { connectDB, incrementStats, getStats, savePushSubscription, getPushSubscriptions, removePushSubscription } = require('./database');
+const { connectDB, incrementStats, getStats, savePushSubscription, getPushSubscriptions, removePushSubscription, getSettings, saveSettings } = require('./database');
 const { getClientConfig, getAllConfigs } = require('../clients/index');
 const express = require('express');
 const path = require('path');
@@ -45,14 +45,17 @@ async function envoyerPushNotification(clientId, title, body) {
     try {
       await webpush.sendNotification(subscription, JSON.stringify({ title, body }));
     } catch (err) {
-      if (err.statusCode === 410) {
-        await removePushSubscription(subscription.endpoint);
-      }
+      if (err.statusCode === 410) await removePushSubscription(subscription.endpoint);
     }
   }
 }
 
-connectDB().then(() => {
+connectDB().then(async () => {
+  const configs = getAllConfigs();
+  const clientId = Object.keys(configs)[0];
+  const settings = await getSettings(clientId);
+  global.vacancesMode = settings.vacancesMode || false;
+  console.log('[SETTINGS] Mode vacances charge : ' + global.vacancesMode);
   planifierRapport();
   demarrerRelances();
 });
@@ -97,8 +100,11 @@ app.get('/dashboard/data', authMiddleware, async (req, res) => {
   }
 });
 
-app.post('/dashboard/vacances', authMiddleware, (req, res) => {
+app.post('/dashboard/vacances', authMiddleware, async (req, res) => {
   global.vacancesMode = req.body.active || false;
+  const configs = getAllConfigs();
+  const clientId = Object.keys(configs)[0];
+  await saveSettings(clientId, { vacancesMode: global.vacancesMode });
   console.log('[VACANCES] Mode vacances : ' + global.vacancesMode);
   res.json({ success: true, vacancesMode: global.vacancesMode });
 });

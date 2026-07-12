@@ -3,7 +3,7 @@ const fs = require('fs');
 const code = "require('dotenv').config();\n" +
 "const { envoyerRapport } = require('./rapport');\n" +
 "const { ajouterProspect, demarrerRelances } = require('./relance');\n" +
-"const { connectDB, incrementStats, getStats, savePushSubscription, getPushSubscriptions, removePushSubscription } = require('./database');\n" +
+"const { connectDB, incrementStats, getStats, savePushSubscription, getPushSubscriptions, removePushSubscription, getSettings, saveSettings } = require('./database');\n" +
 "const { getClientConfig, getAllConfigs } = require('../clients/index');\n" +
 "const express = require('express');\n" +
 "const path = require('path');\n" +
@@ -42,13 +42,16 @@ const code = "require('dotenv').config();\n" +
 "    try {\n" +
 "      await webpush.sendNotification(subscription, JSON.stringify({ title, body }));\n" +
 "    } catch (err) {\n" +
-"      if (err.statusCode === 410) {\n" +
-"        await removePushSubscription(subscription.endpoint);\n" +
-"      }\n" +
+"      if (err.statusCode === 410) await removePushSubscription(subscription.endpoint);\n" +
 "    }\n" +
 "  }\n" +
 "}\n\n" +
-"connectDB().then(() => {\n" +
+"connectDB().then(async () => {\n" +
+"  const configs = getAllConfigs();\n" +
+"  const clientId = Object.keys(configs)[0];\n" +
+"  const settings = await getSettings(clientId);\n" +
+"  global.vacancesMode = settings.vacancesMode || false;\n" +
+"  console.log('[SETTINGS] Mode vacances charge : ' + global.vacancesMode);\n" +
 "  planifierRapport();\n" +
 "  demarrerRelances();\n" +
 "});\n\n" +
@@ -89,8 +92,11 @@ const code = "require('dotenv').config();\n" +
 "    res.json({ businessName: 'Dashboard', stats: { messages: 0, prospects: 0, urgences: 0 }, prospects: [], vacancesMode: false });\n" +
 "  }\n" +
 "});\n\n" +
-"app.post('/dashboard/vacances', authMiddleware, (req, res) => {\n" +
+"app.post('/dashboard/vacances', authMiddleware, async (req, res) => {\n" +
 "  global.vacancesMode = req.body.active || false;\n" +
+"  const configs = getAllConfigs();\n" +
+"  const clientId = Object.keys(configs)[0];\n" +
+"  await saveSettings(clientId, { vacancesMode: global.vacancesMode });\n" +
 "  console.log('[VACANCES] Mode vacances : ' + global.vacancesMode);\n" +
 "  res.json({ success: true, vacancesMode: global.vacancesMode });\n" +
 "});\n\n" +

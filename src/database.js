@@ -14,8 +14,14 @@ const pushSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+const settingsSchema = new mongoose.Schema({
+  clientId: String,
+  vacancesMode: { type: Boolean, default: false }
+});
+
 const Stats = mongoose.model('Stats', statsSchema);
 const PushSub = mongoose.model('PushSub', pushSchema);
+const Settings = mongoose.model('Settings', settingsSchema);
 
 async function connectDB() {
   try {
@@ -64,4 +70,14 @@ async function removePushSubscription(endpoint) {
   await PushSub.deleteOne({ 'subscription.endpoint': endpoint });
 }
 
-module.exports = { connectDB, getStats, incrementStats, savePushSubscription, getPushSubscriptions, removePushSubscription };
+async function getSettings(clientId) {
+  let settings = await Settings.findOne({ clientId });
+  if (!settings) settings = await Settings.create({ clientId });
+  return settings;
+}
+
+async function saveSettings(clientId, data) {
+  await Settings.findOneAndUpdate({ clientId }, data, { upsert: true });
+}
+
+module.exports = { connectDB, getStats, incrementStats, savePushSubscription, getPushSubscriptions, removePushSubscription, getSettings, saveSettings };

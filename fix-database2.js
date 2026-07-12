@@ -13,8 +13,13 @@ const code = "const mongoose = require('mongoose');\n\n" +
 "  subscription: Object,\n" +
 "  createdAt: { type: Date, default: Date.now }\n" +
 "});\n\n" +
+"const settingsSchema = new mongoose.Schema({\n" +
+"  clientId: String,\n" +
+"  vacancesMode: { type: Boolean, default: false }\n" +
+"});\n\n" +
 "const Stats = mongoose.model('Stats', statsSchema);\n" +
-"const PushSub = mongoose.model('PushSub', pushSchema);\n\n" +
+"const PushSub = mongoose.model('PushSub', pushSchema);\n" +
+"const Settings = mongoose.model('Settings', settingsSchema);\n\n" +
 "async function connectDB() {\n" +
 "  try {\n" +
 "    await mongoose.connect(process.env.MONGODB_URI);\n" +
@@ -55,7 +60,15 @@ const code = "const mongoose = require('mongoose');\n\n" +
 "async function removePushSubscription(endpoint) {\n" +
 "  await PushSub.deleteOne({ 'subscription.endpoint': endpoint });\n" +
 "}\n\n" +
-"module.exports = { connectDB, getStats, incrementStats, savePushSubscription, getPushSubscriptions, removePushSubscription };\n";
+"async function getSettings(clientId) {\n" +
+"  let settings = await Settings.findOne({ clientId });\n" +
+"  if (!settings) settings = await Settings.create({ clientId });\n" +
+"  return settings;\n" +
+"}\n\n" +
+"async function saveSettings(clientId, data) {\n" +
+"  await Settings.findOneAndUpdate({ clientId }, data, { upsert: true });\n" +
+"}\n\n" +
+"module.exports = { connectDB, getStats, incrementStats, savePushSubscription, getPushSubscriptions, removePushSubscription, getSettings, saveSettings };\n";
 
 fs.writeFileSync('src/database.js', code);
 console.log('OK');
