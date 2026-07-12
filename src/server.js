@@ -1,9 +1,10 @@
 require('dotenv').config();
 const { envoyerRapport } = require('./rapport');
 const { ajouterProspect, demarrerRelances } = require('./relance');
-const { connectDB, incrementStats } = require('./database');
+const { connectDB, incrementStats, getStats } = require('./database');
 const { getClientConfig } = require('../clients/index');
 const express = require('express');
+const path = require('path');
 const { sendMessage, notifyOwner } = require('./whatsapp');
 const { chat } = require('./agent');
 const { isFirstMessage, markFirstMessageSent } = require('./memory');
@@ -11,9 +12,12 @@ const { isFirstMessage, markFirstMessageSent } = require('./memory');
 const app = express();
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
+app.use(express.static(path.join(__dirname, '../dashboard')));
 
 global.statsHebdo = { messages: 0, prospects: 0, urgences: 0, prospectsList: [] };
 global.blacklist = new Set();
+global.vacancesMode = false;
+global.tokens = new Set();
 
 function planifierRapport() {
   const now = new Date();
@@ -33,6 +37,51 @@ connectDB().then(() => {
   demarrerRelances();
 });
 
+// Routes dashboard
+app.post('/dashboard/login', (req, res) => {
+  const { password } = req.body;
+  const config = Object.values(require('../clients/index').getAllConfigs())[0];
+  if (password === (config && config.business.dashboard_password)) {
+    const token = Math.random().toString(36).slice(2) + Date.now();
+    global.tokens.add(token);
+    res.json({ token });
+  } else {
+    res.status(401).json({ error: 'Mot de passe incorrect' });
+  }
+});
+
+function authMiddleware(req, res, next) {
+  const auth = req.headers.authorization || '';
+  const token = auth.replace('Bearer ', '');
+  if (global.tokens.has(token)) return next();
+  res.status(401).json({ error: 'Non autorise' });
+}
+
+app.get('/dashboard/data', authMiddleware, async (req, res) => {
+  try {
+    const stats = await getStats();
+    const config = Object.values(require('../clients/index').getAllConfigs())[0];
+    res.json({
+      businessName: config ? config.business.name : 'Dashboard',
+      stats: {
+        messages: stats ? stats.messages : 0,
+        prospects: stats ? stats.prospects : 0,
+        urgences: stats ? stats.urgences : 0
+      },
+      prospects: stats ? stats.prospectsList : [],
+      vacancesMode: global.vacancesMode
+    });
+  } catch (err) {
+    res.json({ businessName: 'Dashboard', stats: { messages: 0, prospects: 0, urgences: 0 }, prospects: [], vacancesMode: false });
+  }
+});
+
+app.post('/dashboard/vacances', authMiddleware, (req, res) => {
+  global.vacancesMode = req.body.active || false;
+  console.log('[VACANCES] Mode vacances : ' + global.vacancesMode);
+  res.json({ success: true, vacancesMode: global.vacancesMode });
+});
+
 app.post('/webhook', async (req, res) => {
   const userPhone = req.body.From;
   const userMessage = req.body.Body;
@@ -45,24 +94,25 @@ app.post('/webhook', async (req, res) => {
 
   const userId = userPhone.replace('whatsapp:', '');
 
-  // Verifie si le numero est interne
   const numerosInternes = config.business.numeros_internes || [];
   if (numerosInternes.includes(userId)) {
     console.log('[INTERNE] Message de ' + userId + ' ignore par l agent');
     return res.status(200).send('OK');
   }
 
-  // Verifie si le numero est blackliste (STOP)
   if (global.blacklist.has(userId)) {
     console.log('[BLACKLIST] Message de ' + userId + ' ignore - STOP demande');
     return res.status(200).send('OK');
   }
 
-  // Gestion commande STOP
   if (userMessage.trim().toUpperCase() === 'STOP') {
     global.blacklist.add(userId);
     await sendMessage(userPhone, 'Vous avez ete desabonne. Vous ne recevrez plus de messages automatiques. Pour nous contacter, appelez directement le ' + config.business.phone + '.');
-    console.log('[STOP] ' + userId + ' desabonne');
+    return res.status(200).send('OK');
+  }
+
+  if (global.vacancesMode) {
+    await sendMessage(userPhone, config.business.message_vacances || 'Nous sommes actuellement en vacances. Nous reviendrons bientot. Pour les urgences, appelez le ' + config.business.phone + '.');
     return res.status(200).send('OK');
   }
 
@@ -73,7 +123,6 @@ app.post('/webhook', async (req, res) => {
   try {
     const { reply, isLeadReady, leadInfo } = await chat(userId, userMessage, config);
 
-    // Ajoute le message LPD au premier contact
     let finalReply = reply;
     if (isFirstMessage(userId)) {
       const messageLPD = (config.business.message_lpd || '').replace('{entreprise}', config.business.name) + '\n\n';

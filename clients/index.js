@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 
-// Map numéro Twilio -> dossier client
 const clientsMap = {
   'whatsapp:+14155238886': 'durand-plomberie'
 };
@@ -9,7 +8,7 @@ const clientsMap = {
 function getClientConfig(twilioNumber) {
   const clientFolder = clientsMap[twilioNumber];
   if (!clientFolder) {
-    console.error('[CLIENTS] Numéro inconnu : ' + twilioNumber);
+    console.error('[CLIENTS] Numero inconnu : ' + twilioNumber);
     return null;
   }
   const configPath = path.join(__dirname, clientFolder, 'client.json');
@@ -20,4 +19,13 @@ function getClientFolder(twilioNumber) {
   return clientsMap[twilioNumber] || null;
 }
 
-module.exports = { getClientConfig, getClientFolder };
+function getAllConfigs() {
+  const configs = {};
+  for (const folder of Object.values(clientsMap)) {
+    const configPath = path.join(__dirname, folder, 'client.json');
+    configs[folder] = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  }
+  return configs;
+}
+
+module.exports = { getClientConfig, getClientFolder, getAllConfigs };
