@@ -76,7 +76,7 @@ app.post('/webhook', async (req, res) => {
     // Ajoute le message LPD au premier contact
     let finalReply = reply;
     if (isFirstMessage(userId)) {
-      const messageLPD = 'Bonjour, je suis l assistant de ' + config.business.name + '. Ce service est automatise 24h/24. Vos donnees sont traitees conformement a la loi suisse sur la protection des donnees (LPD). Envoyez STOP pour ne plus etre contacte.\n\n';
+      const messageLPD = (config.business.message_lpd || '').replace('{entreprise}', config.business.name) + '\n\n';
       finalReply = messageLPD + reply;
       markFirstMessageSent(userId);
     }

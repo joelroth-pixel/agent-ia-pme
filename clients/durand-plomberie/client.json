@@ -1,5 +1,6 @@
 {
   "business": {
+    "message_lpd": "Bonjour, je suis l'assistant de {entreprise}. Ce service est automatisé 24h/24. Vos données sont traitées conformément à la loi suisse sur la protection des données (LPD). Envoyez STOP pour ne plus être contacté."
     "numeros_internes": [],
     "name": "Plomberie Durand",
     "owner": "Marc Durand",
