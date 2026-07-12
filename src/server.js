@@ -91,10 +91,10 @@ app.post('/dashboard/login', (req, res) => {
 
 app.get('/dashboard/data', authMiddleware, async (req, res) => {
   try {
-    const stats = await getStats();
     const configs = getAllConfigs();
-    const config = Object.values(configs)[0];
     const clientId = req.clientId || Object.keys(configs)[0];
+    const config = configs[clientId];
+    const stats = await getStats(clientId);
     const conversations = await getConversations(clientId, 10);
     res.json({
       businessName: config ? config.business.name : 'Dashboard',
@@ -191,7 +191,7 @@ app.post('/webhook', async (req, res) => {
   }
 
   global.statsHebdo.messages++;
-  await incrementStats('messages');
+  await incrementStats('messages', null, clientId);
   await saveMessage(clientId, userId, 'user', userMessage);
   console.log('[' + new Date().toLocaleTimeString() + '] Message de ' + userId);
 
@@ -212,14 +212,14 @@ app.post('/webhook', async (req, res) => {
       await updateConversationStatus(clientId, userId, 'urgence');
       await envoyerPushNotification(clientId, 'Urgence client !', 'Numero : ' + userId + ' - ' + userMessage.slice(0, 50));
       if (global.statsHebdo) global.statsHebdo.urgences++;
-      await incrementStats('urgences');
+      await incrementStats('urgences', null, clientId);
     }
 
     if (isLeadReady && leadInfo) {
       await updateConversationStatus(clientId, userId, 'prospect', leadInfo.name);
       global.statsHebdo.prospects++;
       global.statsHebdo.prospectsList.push({ name: leadInfo.name || 'Inconnu', phone: userId });
-      await incrementStats('prospects', { name: leadInfo.name || 'Inconnu', phone: userId });
+      await incrementStats('prospects', { name: leadInfo.name || 'Inconnu', phone: userId }, clientId);
       ajouterProspect(userId, leadInfo.name, leadInfo.rawText);
       await envoyerPushNotification(clientId, 'Nouveau prospect !', (leadInfo.name || 'Client') + ' - ' + userId);
     }

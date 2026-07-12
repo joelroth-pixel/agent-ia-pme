@@ -54,18 +54,20 @@ function getSemaineActuelle() {
   return debut.toISOString().slice(0, 10);
 }
 
-async function getStats() {
+async function getStats(clientId) {
   const semaine = getSemaineActuelle();
-  let stats = await Stats.findOne({ semaine });
-  if (!stats) stats = await Stats.create({ semaine });
+  const query = clientId ? { semaine, clientId } : { semaine };
+  let stats = await Stats.findOne(query);
+  if (!stats) stats = await Stats.create({ semaine, clientId: clientId || 'default' });
   return stats;
 }
 
-async function incrementStats(field, prospect) {
+async function incrementStats(field, prospect, clientId) {
   const semaine = getSemaineActuelle();
+  const filter = { semaine, clientId: clientId || 'default' };
   const update = { $inc: { [field]: 1 } };
   if (prospect) update.$push = { prospectsList: prospect };
-  await Stats.findOneAndUpdate({ semaine }, update, { upsert: true });
+  await Stats.findOneAndUpdate(filter, update, { upsert: true });
 }
 
 async function savePushSubscription(clientId, subscription) {
