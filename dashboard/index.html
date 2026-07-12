@@ -162,6 +162,10 @@
 
   function goMain() {
     show('page-main');
+    if (localStorage.getItem('vac') === '1') {
+      document.getElementById('vac-toggle').checked = true;
+      document.getElementById('vac-desc').textContent = 'Mode vacances actif';
+    }
     if (localStorage.getItem('push') === '1') {
       document.getElementById('notif-toggle').checked = true;
       document.getElementById('notif-desc').textContent = 'Activees';
@@ -229,6 +233,7 @@
 
   function toggleVac() {
     const a = document.getElementById('vac-toggle').checked;
+    localStorage.setItem('vac', a ? '1' : '0');
     fetch('/dashboard/vacances', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
