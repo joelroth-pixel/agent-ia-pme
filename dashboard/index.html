@@ -155,17 +155,18 @@
 
   function showDashboard() {
     document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('dashboard').style.display = 'block';
-    loadData();
-    setInterval(loadData, 30000);
     if (localStorage.getItem('push_active') === 'true') {
       document.getElementById('notif-toggle').checked = true;
       document.getElementById('notif-desc').textContent = 'Activees';
     }
+    loadData().then(() => {
+      document.getElementById('dashboard').style.display = 'block';
+      setInterval(loadData, 30000);
+    });
   }
 
   function loadData() {
-    fetch(API_URL + '/dashboard/data', {
+    return fetch(API_URL + '/dashboard/data', {
       headers: { 'Authorization': 'Bearer ' + authToken }
     })
     .then(r => {
