@@ -232,6 +232,10 @@
         body: JSON.stringify(sub)
       });
       document.getElementById('notif-status').style.display = 'block';
+      const btn = document.querySelector('[onclick="activerNotifications()"]');
+      btn.textContent = 'Active';
+      btn.style.background = '#22c55e';
+      btn.disabled = true;
       console.log('Notifications push activees');
     } catch (err) {
       console.error('Erreur:', err);
