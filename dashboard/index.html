@@ -232,6 +232,7 @@
         body: JSON.stringify(sub)
       });
       document.getElementById('notif-status').style.display = 'block';
+      localStorage.setItem('push_active', 'true');
       const btn = document.querySelector('[onclick="activerNotifications()"]');
       btn.textContent = 'Active';
       btn.style.background = '#22c55e';
@@ -251,6 +252,11 @@
   }
 
   if (authToken) showDashboard();
+  if (localStorage.getItem("push_active") === "true") {
+    const btn = document.querySelector('[onclick="activerNotifications()"]');
+    if (btn) { btn.textContent = "Active"; btn.style.background = "#22c55e"; btn.disabled = true; }
+    document.getElementById("notif-status").style.display = "block";
+  }
 </script>
 
 <script>
