@@ -42,6 +42,14 @@ app.post('/webhook', async (req, res) => {
   if (!config) return res.status(404).send('Client not found');
 
   const userId = userPhone.replace('whatsapp:', '');
+
+  // Verifie si le numero est interne (patron ou collaborateur)
+  const numerosInternes = config.business.numeros_internes || [];
+  if (numerosInternes.includes(userId)) {
+    console.log('[INTERNE] Message de ' + userId + ' ignore par l agent');
+    return res.status(200).send('OK');
+  }
+
   global.statsHebdo.messages++;
   await incrementStats('messages');
   console.log('[' + new Date().toLocaleTimeString() + '] Message de ' + userId + ' pour ' + twilioNumber);
