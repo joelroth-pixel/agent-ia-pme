@@ -19,9 +19,24 @@ const settingsSchema = new mongoose.Schema({
   vacancesMode: { type: Boolean, default: false }
 });
 
+const conversationSchema = new mongoose.Schema({
+  clientId: String,
+  userId: String,
+  messages: [{
+    role: String,
+    content: String,
+    timestamp: { type: Date, default: Date.now }
+  }],
+  status: { type: String, default: 'normal' },
+  name: { type: String, default: 'Inconnu' },
+  lastMessage: { type: Date, default: Date.now },
+  createdAt: { type: Date, default: Date.now }
+});
+
 const Stats = mongoose.model('Stats', statsSchema);
 const PushSub = mongoose.model('PushSub', pushSchema);
 const Settings = mongoose.model('Settings', settingsSchema);
+const Conversation = mongoose.model('Conversation', conversationSchema);
 
 async function connectDB() {
   try {
@@ -80,4 +95,32 @@ async function saveSettings(clientId, data) {
   await Settings.findOneAndUpdate({ clientId }, data, { upsert: true });
 }
 
-module.exports = { connectDB, getStats, incrementStats, savePushSubscription, getPushSubscriptions, removePushSubscription, getSettings, saveSettings };
+async function saveMessage(clientId, userId, role, content) {
+  await Conversation.findOneAndUpdate(
+    { clientId, userId },
+    {
+      $push: { messages: { role, content } },
+      $set: { lastMessage: new Date() }
+    },
+    { upsert: true }
+  );
+}
+
+async function updateConversationStatus(clientId, userId, status, name) {
+  const update = { status };
+  if (name) update.name = name;
+  await Conversation.findOneAndUpdate({ clientId, userId }, { $set: update }, { upsert: true });
+}
+
+async function getConversations(clientId, limit) {
+  return await Conversation.find({ clientId })
+    .sort({ lastMessage: -1 })
+    .limit(limit || 20)
+    .select('userId name status lastMessage createdAt messages');
+}
+
+async function getConversation(clientId, userId) {
+  return await Conversation.findOne({ clientId, userId });
+}
+
+module.exports = { connectDB, getStats, incrementStats, savePushSubscription, getPushSubscriptions, removePushSubscription, getSettings, saveSettings, saveMessage, updateConversationStatus, getConversations, getConversation };

@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { envoyerRapport } = require('./rapport');
 const { ajouterProspect, demarrerRelances } = require('./relance');
-const { connectDB, incrementStats, getStats, savePushSubscription, getPushSubscriptions, removePushSubscription, getSettings, saveSettings } = require('./database');
+const { connectDB, incrementStats, getStats, savePushSubscription, getPushSubscriptions, removePushSubscription, getSettings, saveSettings, saveMessage, updateConversationStatus, getConversations, getConversation } = require('./database');
 const { getClientConfig, getAllConfigs } = require('../clients/index');
 const express = require('express');
 const path = require('path');
@@ -85,6 +85,8 @@ app.get('/dashboard/data', authMiddleware, async (req, res) => {
     const stats = await getStats();
     const configs = getAllConfigs();
     const config = Object.values(configs)[0];
+    const clientId = Object.keys(configs)[0];
+    const conversations = await getConversations(clientId, 10);
     res.json({
       businessName: config ? config.business.name : 'Dashboard',
       stats: {
@@ -93,10 +95,28 @@ app.get('/dashboard/data', authMiddleware, async (req, res) => {
         urgences: stats ? stats.urgences : 0
       },
       prospects: stats ? stats.prospectsList : [],
-      vacancesMode: global.vacancesMode
+      vacancesMode: global.vacancesMode,
+      conversations: conversations.map(c => ({
+        userId: c.userId,
+        name: c.name,
+        status: c.status,
+        lastMessage: c.lastMessage,
+        messageCount: c.messages ? c.messages.length : 0
+      }))
     });
   } catch (err) {
-    res.json({ businessName: 'Dashboard', stats: { messages: 0, prospects: 0, urgences: 0 }, prospects: [], vacancesMode: false });
+    res.json({ businessName: 'Dashboard', stats: { messages: 0, prospects: 0, urgences: 0 }, prospects: [], vacancesMode: false, conversations: [] });
+  }
+});
+
+app.get('/dashboard/conversation/:userId', authMiddleware, async (req, res) => {
+  try {
+    const configs = getAllConfigs();
+    const clientId = Object.keys(configs)[0];
+    const conv = await getConversation(clientId, req.params.userId);
+    res.json(conv || { messages: [] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -115,7 +135,6 @@ app.post('/dashboard/push-subscribe', authMiddleware, async (req, res) => {
     const configs = getAllConfigs();
     const clientId = Object.keys(configs)[0];
     await savePushSubscription(clientId, subscription);
-    console.log('[PUSH] Subscription sauvegardee pour ' + clientId);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -137,6 +156,8 @@ app.post('/webhook', async (req, res) => {
   if (!config) return res.status(404).send('Client not found');
 
   const userId = userPhone.replace('whatsapp:', '');
+  const configs = getAllConfigs();
+  const clientId = Object.keys(configs)[0];
 
   const numerosInternes = config.business.numeros_internes || [];
   if (numerosInternes.includes(userId)) {
@@ -162,6 +183,7 @@ app.post('/webhook', async (req, res) => {
 
   global.statsHebdo.messages++;
   await incrementStats('messages');
+  await saveMessage(clientId, userId, 'user', userMessage);
   console.log('[' + new Date().toLocaleTimeString() + '] Message de ' + userId);
 
   try {
@@ -175,21 +197,22 @@ app.post('/webhook', async (req, res) => {
     }
 
     await sendMessage(userPhone, finalReply);
-
-    const clientFolder = Object.keys(getAllConfigs())[0];
+    await saveMessage(clientId, userId, 'assistant', finalReply);
 
     if (isUrgent) {
-      await envoyerPushNotification(clientFolder, 'Urgence client !', 'Numero : ' + userId + ' - ' + userMessage.slice(0, 50));
+      await updateConversationStatus(clientId, userId, 'urgence');
+      await envoyerPushNotification(clientId, 'Urgence client !', 'Numero : ' + userId + ' - ' + userMessage.slice(0, 50));
       if (global.statsHebdo) global.statsHebdo.urgences++;
       await incrementStats('urgences');
     }
 
     if (isLeadReady && leadInfo) {
+      await updateConversationStatus(clientId, userId, 'prospect', leadInfo.name);
       global.statsHebdo.prospects++;
       global.statsHebdo.prospectsList.push({ name: leadInfo.name || 'Inconnu', phone: userId });
       await incrementStats('prospects', { name: leadInfo.name || 'Inconnu', phone: userId });
       ajouterProspect(userId, leadInfo.name, leadInfo.rawText);
-      await envoyerPushNotification(clientFolder, 'Nouveau prospect !', (leadInfo.name || 'Client') + ' - ' + userId);
+      await envoyerPushNotification(clientId, 'Nouveau prospect !', (leadInfo.name || 'Client') + ' - ' + userId);
     }
   } catch (error) {
     console.error('Erreur agent IA :', error);

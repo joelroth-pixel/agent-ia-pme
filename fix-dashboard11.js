@@ -1,4 +1,6 @@
-<!DOCTYPE html>
+const fs = require('fs');
+
+const html = `<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -230,7 +232,7 @@
           const date = new Date(c.lastMessage).toLocaleDateString('fr-CH');
           const badgeClass = c.status === 'prospect' ? 'prospect' : c.status === 'urgence' ? 'urgence' : 'normal';
           const badgeText = c.status === 'prospect' ? 'Prospect' : c.status === 'urgence' ? 'Urgence' : 'Normal';
-          return '<div class="conv-item" onclick="showConversation('' + c.userId + '', '' + (c.name || 'Client') + '', '' + c.status + '')">' +
+          return '<div class="conv-item" onclick="showConversation(\'' + c.userId + '\', \'' + (c.name || 'Client') + '\', \'' + c.status + '\')">' +
             '<div class="conv-left">' +
             '<div class="conv-avatar ' + badgeClass + '">' + initials + '</div>' +
             '<div><div class="conv-name">' + (c.name || 'Client') + '</div>' +
@@ -334,4 +336,7 @@
 </script>
 
 </body>
-</html>
+</html>`;
+
+fs.writeFileSync('dashboard/index.html', html, 'utf8');
+console.log('OK');
