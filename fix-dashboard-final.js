@@ -1,4 +1,6 @@
-<!DOCTYPE html>
+const fs = require('fs');
+
+const html = `<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -252,7 +254,7 @@
           const st=c.status||'normal';
           const stLabel=st==='prospect'?'Prospect':st==='urgence'?'Urgence':'Normal';
           const time=new Date(c.lastMessage).toLocaleDateString('fr-CH',{day:'2-digit',month:'2-digit'});
-          return '<div class="conv-item" onclick="goConv(''+c.userId+'',''+(c.name||'Client')+'')">'+
+          return '<div class="conv-item" onclick="goConv(\''+c.userId+'\',\''+(c.name||'Client')+'\')">'+
             '<div class="avatar av-'+st+'">'+init+'</div>'+
             '<div class="conv-info"><div class="conv-name">'+(c.name||'Client')+'</div>'+
             '<div class="conv-preview">'+c.userId+'</div></div>'+
@@ -366,4 +368,7 @@
 </script>
 
 </body>
-</html>
+</html>`;
+
+fs.writeFileSync('dashboard/index.html', html, 'utf8');
+console.log('OK');
