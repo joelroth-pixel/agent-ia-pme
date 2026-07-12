@@ -78,6 +78,7 @@ async function chat(userId, userMessage, config) {
   return {
     reply: finalReply,
     isLeadReady,
+    isUrgent,
     leadInfo: isLeadReady ? memory.getLead(userId) : null,
   };
 }
