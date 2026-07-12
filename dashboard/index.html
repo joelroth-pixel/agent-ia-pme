@@ -101,10 +101,12 @@
       <div class="toggle">
         <div>
           <div class="toggle-label">Alertes en temps reel</div>
-          <div class="toggle-desc">Recevez une alerte meme quand l app est fermee</div>
-          <div class="notif-status" id="notif-status">Notifications activees</div>
+          <div class="toggle-desc" id="notif-desc">Activez pour recevoir des alertes quand l app est fermee</div>
         </div>
-        <button class="btn btn-small" onclick="activerNotifications()">Activer</button>
+        <label class="switch">
+          <input type="checkbox" id="notif-toggle" onchange="toggleNotifications()">
+          <span class="slider"></span>
+        </label>
       </div>
     </div>
 
@@ -253,9 +255,10 @@
 
   if (authToken) showDashboard();
   if (localStorage.getItem("push_active") === "true") {
-    const btn = document.querySelector('[onclick="activerNotifications()"]');
-    if (btn) { btn.textContent = "Active"; btn.style.background = "#22c55e"; btn.disabled = true; }
-    document.getElementById("notif-status").style.display = "block";
+    const toggle = document.getElementById("notif-toggle");
+    if (toggle) { toggle.checked = true; }
+    const desc = document.getElementById("notif-desc");
+    if (desc) desc.textContent = "Notifications activees";
   }
 </script>
 
