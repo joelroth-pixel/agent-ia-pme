@@ -83,7 +83,7 @@
     </div>
 
     <div class="card">
-      <h2>Alertes recentes</h2>
+      <h2>Alertes récentes</h2>
       <div id="alerts-list">
         <div class="empty">Aucune alerte cette semaine</div>
       </div>
@@ -94,7 +94,7 @@
       <div class="toggle">
         <div>
           <div class="toggle-label">Activer le mode vacances</div>
-          <div class="toggle-desc" id="vacances-desc">L agent repond normalement</div>
+          <div class="toggle-desc" id="vacances-desc">L'agent répond normalement</div>
         </div>
         <label class="switch">
           <input type="checkbox" id="vacances-toggle" onchange="toggleVacances()">
@@ -155,7 +155,7 @@
       document.getElementById('stat-messages').textContent = data.stats.messages || 0;
       document.getElementById('stat-prospects').textContent = data.stats.prospects || 0;
       document.getElementById('stat-urgences').textContent = data.stats.urgences || 0;
-      document.getElementById('last-update').textContent = 'Mis a jour : ' + new Date().toLocaleTimeString('fr-CH');
+      document.getElementById('last-update').textContent = 'Mis à jour : ' + new Date().toLocaleTimeString('fr-CH');
 
       const alertsList = document.getElementById('alerts-list');
       if (data.prospects && data.prospects.length > 0) {
@@ -168,7 +168,7 @@
 
       const toggle = document.getElementById('vacances-toggle');
       toggle.checked = data.vacancesMode || false;
-      document.getElementById('vacances-desc').textContent = data.vacancesMode ? 'Mode vacances actif' : 'L agent repond normalement';
+      document.getElementById('vacances-desc').textContent = data.vacancesMode ? 'Mode vacances actif' : 'L\'agent répond normalement';
     })
     .catch(console.error);
   }
