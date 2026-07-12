@@ -24,7 +24,7 @@ app.use(express.static(path.join(__dirname, '../dashboard')));
 global.statsHebdo = { messages: 0, prospects: 0, urgences: 0, prospectsList: [] };
 global.blacklist = new Set();
 global.vacancesMode = false;
-global.tokens = new Set();
+global.tokens = new Map();
 
 function planifierRapport() {
   const now = new Date();
@@ -52,7 +52,7 @@ async function envoyerPushNotification(clientId, title, body) {
 
 connectDB().then(async () => {
   const configs = getAllConfigs();
-  const clientId = Object.keys(configs)[0];
+  const clientId = req.clientId || Object.keys(configs)[0];
   const settings = await getSettings(clientId);
   global.vacancesMode = settings.vacancesMode || false;
   console.log('[SETTINGS] Mode vacances charge : ' + global.vacancesMode);
@@ -63,17 +63,26 @@ connectDB().then(async () => {
 function authMiddleware(req, res, next) {
   const auth = req.headers.authorization || '';
   const token = auth.replace('Bearer ', '');
-  if (global.tokens.has(token)) return next();
+  if (global.tokens.has(token)) {
+    req.clientId = global.tokens.get(token);
+    return next();
+  }
   res.status(401).json({ error: 'Non autorise' });
 }
 
 app.post('/dashboard/login', (req, res) => {
   const { password } = req.body;
   const configs = getAllConfigs();
-  const config = Object.values(configs)[0];
-  if (password === (config && config.business.dashboard_password)) {
+  let matchedClientId = null;
+  for (const [clientId, config] of Object.entries(configs)) {
+    if (password === config.business.dashboard_password) {
+      matchedClientId = clientId;
+      break;
+    }
+  }
+  if (matchedClientId) {
     const token = Math.random().toString(36).slice(2) + Date.now();
-    global.tokens.add(token);
+    global.tokens.set(token, matchedClientId);
     res.json({ token });
   } else {
     res.status(401).json({ error: 'Mot de passe incorrect' });
@@ -85,7 +94,7 @@ app.get('/dashboard/data', authMiddleware, async (req, res) => {
     const stats = await getStats();
     const configs = getAllConfigs();
     const config = Object.values(configs)[0];
-    const clientId = Object.keys(configs)[0];
+    const clientId = req.clientId || Object.keys(configs)[0];
     const conversations = await getConversations(clientId, 10);
     res.json({
       businessName: config ? config.business.name : 'Dashboard',
@@ -112,7 +121,7 @@ app.get('/dashboard/data', authMiddleware, async (req, res) => {
 app.get('/dashboard/conversation/:userId', authMiddleware, async (req, res) => {
   try {
     const configs = getAllConfigs();
-    const clientId = Object.keys(configs)[0];
+    const clientId = req.clientId || Object.keys(configs)[0];
     const conv = await getConversation(clientId, req.params.userId);
     res.json(conv || { messages: [] });
   } catch (err) {
@@ -123,7 +132,7 @@ app.get('/dashboard/conversation/:userId', authMiddleware, async (req, res) => {
 app.post('/dashboard/vacances', authMiddleware, async (req, res) => {
   global.vacancesMode = req.body.active || false;
   const configs = getAllConfigs();
-  const clientId = Object.keys(configs)[0];
+  const clientId = req.clientId || Object.keys(configs)[0];
   await saveSettings(clientId, { vacancesMode: global.vacancesMode });
   console.log('[VACANCES] Mode vacances : ' + global.vacancesMode);
   res.json({ success: true, vacancesMode: global.vacancesMode });
@@ -133,7 +142,7 @@ app.post('/dashboard/push-subscribe', authMiddleware, async (req, res) => {
   try {
     const subscription = req.body;
     const configs = getAllConfigs();
-    const clientId = Object.keys(configs)[0];
+    const clientId = req.clientId || Object.keys(configs)[0];
     await savePushSubscription(clientId, subscription);
     res.json({ success: true });
   } catch (err) {
@@ -157,7 +166,7 @@ app.post('/webhook', async (req, res) => {
 
   const userId = userPhone.replace('whatsapp:', '');
   const configs = getAllConfigs();
-  const clientId = Object.keys(configs)[0];
+  const clientId = req.clientId || Object.keys(configs)[0];
 
   const numerosInternes = config.business.numeros_internes || [];
   if (numerosInternes.includes(userId)) {
@@ -226,7 +235,7 @@ app.post('/dashboard/reply', authMiddleware, async (req, res) => {
   try {
     const { userId, message } = req.body;
     const configs = getAllConfigs();
-    const clientId = Object.keys(configs)[0];
+    const clientId = req.clientId || Object.keys(configs)[0];
     await sendMessage('whatsapp:' + userId, message);
     await saveMessage(clientId, userId, 'assistant', message);
     console.log('[REPLY] Message envoye a ' + userId);
@@ -240,7 +249,7 @@ app.post('/dashboard/reply', authMiddleware, async (req, res) => {
   try {
     const { userId, message } = req.body;
     const configs = getAllConfigs();
-    const clientId = Object.keys(configs)[0];
+    const clientId = req.clientId || Object.keys(configs)[0];
     await sendMessage('whatsapp:' + userId, message);
     await saveMessage(clientId, userId, 'assistant', message);
     console.log('[REPLY] Message envoye a ' + userId);
