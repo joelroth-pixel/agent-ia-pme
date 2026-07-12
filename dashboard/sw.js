@@ -1,16 +1,31 @@
-const CACHE_NAME = 'ap-rothlisberger-v1';
-const urlsToCache = ['/', '/dashboard/index.html'];
+const CACHE_NAME = 'ap-rothlisberger-v2';
 
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
-  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(clients.claim());
 });
 
 self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request).then(response => {
-      return response || fetch(event.request);
+  event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+});
+
+self.addEventListener('push', event => {
+  if (!event.data) return;
+  const data = event.data.json();
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/icon-192.svg',
+      badge: '/icon-192.svg',
+      vibrate: [200, 100, 200]
     })
   );
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  event.waitUntil(clients.openWindow('/'));
 });

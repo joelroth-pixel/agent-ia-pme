@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { envoyerRapport } = require('./rapport');
 const { ajouterProspect, demarrerRelances } = require('./relance');
-const { connectDB, incrementStats, getStats } = require('./database');
+const { connectDB, incrementStats, getStats, savePushSubscription, getPushSubscriptions, removePushSubscription } = require('./database');
 const { getClientConfig, getAllConfigs } = require('../clients/index');
 const express = require('express');
 const path = require('path');
@@ -25,7 +25,6 @@ global.statsHebdo = { messages: 0, prospects: 0, urgences: 0, prospectsList: [] 
 global.blacklist = new Set();
 global.vacancesMode = false;
 global.tokens = new Set();
-global.pushSubscriptions = [];
 
 function planifierRapport() {
   const now = new Date();
@@ -40,18 +39,18 @@ function planifierRapport() {
   console.log('[RAPPORT] Prochain rapport : ' + prochainLundi.toLocaleString('fr-CH'));
 }
 
-async function envoyerPushNotification(title, body) {
-  for (const subscription of global.pushSubscriptions) {
+async function envoyerPushNotification(clientId, title, body) {
+  const subscriptions = await getPushSubscriptions(clientId);
+  for (const subscription of subscriptions) {
     try {
       await webpush.sendNotification(subscription, JSON.stringify({ title, body }));
     } catch (err) {
-      console.error('[PUSH] Erreur envoi notification:', err.message);
-      global.pushSubscriptions = global.pushSubscriptions.filter(s => s !== subscription);
+      if (err.statusCode === 410) {
+        await removePushSubscription(subscription.endpoint);
+      }
     }
   }
 }
-
-global.envoyerPushNotification = envoyerPushNotification;
 
 connectDB().then(() => {
   planifierRapport();
@@ -104,11 +103,17 @@ app.post('/dashboard/vacances', authMiddleware, (req, res) => {
   res.json({ success: true, vacancesMode: global.vacancesMode });
 });
 
-app.post('/dashboard/push-subscribe', authMiddleware, (req, res) => {
-  const subscription = req.body;
-  global.pushSubscriptions.push(subscription);
-  console.log('[PUSH] Nouvelle subscription enregistree');
-  res.json({ success: true });
+app.post('/dashboard/push-subscribe', authMiddleware, async (req, res) => {
+  try {
+    const subscription = req.body;
+    const configs = getAllConfigs();
+    const clientId = Object.keys(configs)[0];
+    await savePushSubscription(clientId, subscription);
+    console.log('[PUSH] Subscription sauvegardee pour ' + clientId);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/dashboard/vapid-public-key', (req, res) => {
@@ -129,7 +134,7 @@ app.post('/webhook', async (req, res) => {
 
   const numerosInternes = config.business.numeros_internes || [];
   if (numerosInternes.includes(userId)) {
-    console.log('[INTERNE] Message de ' + userId + ' ignore par l agent');
+    console.log('[INTERNE] Message de ' + userId + ' ignore');
     return res.status(200).send('OK');
   }
 
@@ -165,8 +170,12 @@ app.post('/webhook', async (req, res) => {
 
     await sendMessage(userPhone, finalReply);
 
+    const clientFolder = Object.keys(getAllConfigs())[0];
+
     if (isUrgent) {
-      await envoyerPushNotification('Urgence client !', 'Numero : ' + userId + ' - Message : ' + userMessage);
+      await envoyerPushNotification(clientFolder, 'Urgence client !', 'Numero : ' + userId + ' - ' + userMessage.slice(0, 50));
+      if (global.statsHebdo) global.statsHebdo.urgences++;
+      await incrementStats('urgences');
     }
 
     if (isLeadReady && leadInfo) {
@@ -174,7 +183,7 @@ app.post('/webhook', async (req, res) => {
       global.statsHebdo.prospectsList.push({ name: leadInfo.name || 'Inconnu', phone: userId });
       await incrementStats('prospects', { name: leadInfo.name || 'Inconnu', phone: userId });
       ajouterProspect(userId, leadInfo.name, leadInfo.rawText);
-      await envoyerPushNotification('Nouveau prospect !', (leadInfo.name || 'Client') + ' - ' + userId);
+      await envoyerPushNotification(clientFolder, 'Nouveau prospect !', (leadInfo.name || 'Client') + ' - ' + userId);
     }
   } catch (error) {
     console.error('Erreur agent IA :', error);

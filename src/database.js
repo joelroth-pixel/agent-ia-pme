@@ -8,7 +8,14 @@ const statsSchema = new mongoose.Schema({
   prospectsList: { type: Array, default: [] }
 });
 
+const pushSchema = new mongoose.Schema({
+  clientId: String,
+  subscription: Object,
+  createdAt: { type: Date, default: Date.now }
+});
+
 const Stats = mongoose.model('Stats', statsSchema);
+const PushSub = mongoose.model('PushSub', pushSchema);
 
 async function connectDB() {
   try {
@@ -29,19 +36,32 @@ function getSemaineActuelle() {
 async function getStats() {
   const semaine = getSemaineActuelle();
   let stats = await Stats.findOne({ semaine });
-  if (!stats) {
-    stats = await Stats.create({ semaine });
-  }
+  if (!stats) stats = await Stats.create({ semaine });
   return stats;
 }
 
 async function incrementStats(field, prospect) {
   const semaine = getSemaineActuelle();
   const update = { $inc: { [field]: 1 } };
-  if (prospect) {
-    update.$push = { prospectsList: prospect };
-  }
+  if (prospect) update.$push = { prospectsList: prospect };
   await Stats.findOneAndUpdate({ semaine }, update, { upsert: true });
 }
 
-module.exports = { connectDB, getStats, incrementStats };
+async function savePushSubscription(clientId, subscription) {
+  await PushSub.findOneAndUpdate(
+    { clientId, 'subscription.endpoint': subscription.endpoint },
+    { clientId, subscription },
+    { upsert: true }
+  );
+}
+
+async function getPushSubscriptions(clientId) {
+  const subs = await PushSub.find({ clientId });
+  return subs.map(s => s.subscription);
+}
+
+async function removePushSubscription(endpoint) {
+  await PushSub.deleteOne({ 'subscription.endpoint': endpoint });
+}
+
+module.exports = { connectDB, getStats, incrementStats, savePushSubscription, getPushSubscriptions, removePushSubscription };
