@@ -2,12 +2,19 @@ require('dotenv').config();
 const { envoyerRapport } = require('./rapport');
 const { ajouterProspect, demarrerRelances } = require('./relance');
 const { connectDB, incrementStats, getStats } = require('./database');
-const { getClientConfig } = require('../clients/index');
+const { getClientConfig, getAllConfigs } = require('../clients/index');
 const express = require('express');
 const path = require('path');
-const { sendMessage, notifyOwner } = require('./whatsapp');
+const webpush = require('web-push');
+const { sendMessage } = require('./whatsapp');
 const { chat } = require('./agent');
 const { isFirstMessage, markFirstMessageSent } = require('./memory');
+
+webpush.setVapidDetails(
+  process.env.VAPID_EMAIL,
+  process.env.VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
+);
 
 const app = express();
 app.use(express.urlencoded({ extended: false }));
@@ -18,6 +25,7 @@ global.statsHebdo = { messages: 0, prospects: 0, urgences: 0, prospectsList: [] 
 global.blacklist = new Set();
 global.vacancesMode = false;
 global.tokens = new Set();
+global.pushSubscriptions = [];
 
 function planifierRapport() {
   const now = new Date();
@@ -32,22 +40,22 @@ function planifierRapport() {
   console.log('[RAPPORT] Prochain rapport : ' + prochainLundi.toLocaleString('fr-CH'));
 }
 
+async function envoyerPushNotification(title, body) {
+  for (const subscription of global.pushSubscriptions) {
+    try {
+      await webpush.sendNotification(subscription, JSON.stringify({ title, body }));
+    } catch (err) {
+      console.error('[PUSH] Erreur envoi notification:', err.message);
+      global.pushSubscriptions = global.pushSubscriptions.filter(s => s !== subscription);
+    }
+  }
+}
+
+global.envoyerPushNotification = envoyerPushNotification;
+
 connectDB().then(() => {
   planifierRapport();
   demarrerRelances();
-});
-
-// Routes dashboard
-app.post('/dashboard/login', (req, res) => {
-  const { password } = req.body;
-  const config = Object.values(require('../clients/index').getAllConfigs())[0];
-  if (password === (config && config.business.dashboard_password)) {
-    const token = Math.random().toString(36).slice(2) + Date.now();
-    global.tokens.add(token);
-    res.json({ token });
-  } else {
-    res.status(401).json({ error: 'Mot de passe incorrect' });
-  }
 });
 
 function authMiddleware(req, res, next) {
@@ -57,10 +65,24 @@ function authMiddleware(req, res, next) {
   res.status(401).json({ error: 'Non autorise' });
 }
 
+app.post('/dashboard/login', (req, res) => {
+  const { password } = req.body;
+  const configs = getAllConfigs();
+  const config = Object.values(configs)[0];
+  if (password === (config && config.business.dashboard_password)) {
+    const token = Math.random().toString(36).slice(2) + Date.now();
+    global.tokens.add(token);
+    res.json({ token });
+  } else {
+    res.status(401).json({ error: 'Mot de passe incorrect' });
+  }
+});
+
 app.get('/dashboard/data', authMiddleware, async (req, res) => {
   try {
     const stats = await getStats();
-    const config = Object.values(require('../clients/index').getAllConfigs())[0];
+    const configs = getAllConfigs();
+    const config = Object.values(configs)[0];
     res.json({
       businessName: config ? config.business.name : 'Dashboard',
       stats: {
@@ -82,6 +104,17 @@ app.post('/dashboard/vacances', authMiddleware, (req, res) => {
   res.json({ success: true, vacancesMode: global.vacancesMode });
 });
 
+app.post('/dashboard/push-subscribe', authMiddleware, (req, res) => {
+  const subscription = req.body;
+  global.pushSubscriptions.push(subscription);
+  console.log('[PUSH] Nouvelle subscription enregistree');
+  res.json({ success: true });
+});
+
+app.get('/dashboard/vapid-public-key', (req, res) => {
+  res.json({ key: process.env.VAPID_PUBLIC_KEY });
+});
+
 app.post('/webhook', async (req, res) => {
   const userPhone = req.body.From;
   const userMessage = req.body.Body;
@@ -101,27 +134,27 @@ app.post('/webhook', async (req, res) => {
   }
 
   if (global.blacklist.has(userId)) {
-    console.log('[BLACKLIST] Message de ' + userId + ' ignore - STOP demande');
+    console.log('[BLACKLIST] Message de ' + userId + ' ignore');
     return res.status(200).send('OK');
   }
 
   if (userMessage.trim().toUpperCase() === 'STOP') {
     global.blacklist.add(userId);
-    await sendMessage(userPhone, 'Vous avez ete desabonne. Vous ne recevrez plus de messages automatiques. Pour nous contacter, appelez directement le ' + config.business.phone + '.');
+    await sendMessage(userPhone, 'Vous avez ete desabonne. Pour nous contacter, appelez le ' + config.business.phone + '.');
     return res.status(200).send('OK');
   }
 
   if (global.vacancesMode) {
-    await sendMessage(userPhone, config.business.message_vacances || 'Nous sommes actuellement en vacances. Nous reviendrons bientot. Pour les urgences, appelez le ' + config.business.phone + '.');
+    await sendMessage(userPhone, config.business.message_vacances || 'Nous sommes actuellement en vacances. Pour les urgences, appelez le ' + config.business.phone + '.');
     return res.status(200).send('OK');
   }
 
   global.statsHebdo.messages++;
   await incrementStats('messages');
-  console.log('[' + new Date().toLocaleTimeString() + '] Message de ' + userId + ' pour ' + twilioNumber);
+  console.log('[' + new Date().toLocaleTimeString() + '] Message de ' + userId);
 
   try {
-    const { reply, isLeadReady, leadInfo } = await chat(userId, userMessage, config);
+    const { reply, isLeadReady, leadInfo, isUrgent } = await chat(userId, userMessage, config);
 
     let finalReply = reply;
     if (isFirstMessage(userId)) {
@@ -131,17 +164,21 @@ app.post('/webhook', async (req, res) => {
     }
 
     await sendMessage(userPhone, finalReply);
-    console.log('[' + new Date().toLocaleTimeString() + '] Reponse envoyee a ' + userId);
+
+    if (isUrgent) {
+      await envoyerPushNotification('Urgence client !', 'Numero : ' + userId + ' - Message : ' + userMessage);
+    }
 
     if (isLeadReady && leadInfo) {
       global.statsHebdo.prospects++;
       global.statsHebdo.prospectsList.push({ name: leadInfo.name || 'Inconnu', phone: userId });
       await incrementStats('prospects', { name: leadInfo.name || 'Inconnu', phone: userId });
       ajouterProspect(userId, leadInfo.name, leadInfo.rawText);
+      await envoyerPushNotification('Nouveau prospect !', (leadInfo.name || 'Client') + ' - ' + userId);
     }
   } catch (error) {
     console.error('Erreur agent IA :', error);
-    await sendMessage(userPhone, 'Desole, une erreur est survenue. Veuillez rappeler directement au numero habituel.');
+    await sendMessage(userPhone, 'Desole, une erreur est survenue. Veuillez rappeler directement.');
   }
   res.status(200).send('OK');
 });
@@ -152,7 +189,7 @@ app.get('/relance-test', async (req, res) => {
     global.prospectsEnAttente[userId].timestamp = Date.now() - 25 * 60 * 60 * 1000;
   }
   await verifierRelances();
-  res.json({ status: 'relances verifiees', prospects: global.prospectsEnAttente });
+  res.json({ status: 'relances verifiees' });
 });
 
 app.get('/rapport-test', async (req, res) => {
