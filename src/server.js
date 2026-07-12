@@ -6,12 +6,14 @@ const { getClientConfig } = require('../clients/index');
 const express = require('express');
 const { sendMessage, notifyOwner } = require('./whatsapp');
 const { chat } = require('./agent');
+const { isFirstMessage, markFirstMessageSent } = require('./memory');
 
 const app = express();
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
 global.statsHebdo = { messages: 0, prospects: 0, urgences: 0, prospectsList: [] };
+global.blacklist = new Set();
 
 function planifierRapport() {
   const now = new Date();
@@ -43,10 +45,24 @@ app.post('/webhook', async (req, res) => {
 
   const userId = userPhone.replace('whatsapp:', '');
 
-  // Verifie si le numero est interne (patron ou collaborateur)
+  // Verifie si le numero est interne
   const numerosInternes = config.business.numeros_internes || [];
   if (numerosInternes.includes(userId)) {
     console.log('[INTERNE] Message de ' + userId + ' ignore par l agent');
+    return res.status(200).send('OK');
+  }
+
+  // Verifie si le numero est blackliste (STOP)
+  if (global.blacklist.has(userId)) {
+    console.log('[BLACKLIST] Message de ' + userId + ' ignore - STOP demande');
+    return res.status(200).send('OK');
+  }
+
+  // Gestion commande STOP
+  if (userMessage.trim().toUpperCase() === 'STOP') {
+    global.blacklist.add(userId);
+    await sendMessage(userPhone, 'Vous avez ete desabonne. Vous ne recevrez plus de messages automatiques. Pour nous contacter, appelez directement le ' + config.business.phone + '.');
+    console.log('[STOP] ' + userId + ' desabonne');
     return res.status(200).send('OK');
   }
 
@@ -56,7 +72,16 @@ app.post('/webhook', async (req, res) => {
 
   try {
     const { reply, isLeadReady, leadInfo } = await chat(userId, userMessage, config);
-    await sendMessage(userPhone, reply);
+
+    // Ajoute le message LPD au premier contact
+    let finalReply = reply;
+    if (isFirstMessage(userId)) {
+      const messageLPD = 'Bonjour, je suis l assistant de ' + config.business.name + '. Ce service est automatise 24h/24. Vos donnees sont traitees conformement a la loi suisse sur la protection des donnees (LPD). Envoyez STOP pour ne plus etre contacte.\n\n';
+      finalReply = messageLPD + reply;
+      markFirstMessageSent(userId);
+    }
+
+    await sendMessage(userPhone, finalReply);
     console.log('[' + new Date().toLocaleTimeString() + '] Reponse envoyee a ' + userId);
 
     if (isLeadReady && leadInfo) {

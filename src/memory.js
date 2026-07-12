@@ -54,4 +54,13 @@ function clearSession(userId) {
   conversations.delete(userId);
 }
 
-module.exports = { addMessage, updateLead, getLead, getMessages, clearSession, isAlreadyNotified, markAsNotified, isUrgenceNotified, markUrgenceNotified };
+
+function isFirstMessage(userId) {
+  return getHistory(userId).firstMessageSent !== true;
+}
+
+function markFirstMessageSent(userId) {
+  getHistory(userId).firstMessageSent = true;
+}
+
+module.exports = { addMessage, updateLead, getLead, getMessages, clearSession, isAlreadyNotified, markAsNotified, isUrgenceNotified, markUrgenceNotified, isFirstMessage, markFirstMessageSent };
