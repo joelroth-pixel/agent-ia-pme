@@ -124,10 +124,16 @@
     </div>
   </div>
   <div class="container">
-    <div class="card">
-      <div class="msg-list" id="msg-list"></div>
+      <div class="card">
+        <div class="msg-list" id="msg-list"></div>
+      </div>
+      <div class="card">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="reply-input" class="input" style="margin-bottom:0;flex:1" type="text" placeholder="Repondre au client...">
+          <button class="btn" style="width:auto;padding:12px 20px" onclick="sendReply()">Envoyer</button>
+        </div>
+      </div>
     </div>
-  </div>
 </div>
 
 <script>
@@ -209,7 +215,10 @@
     .catch(console.error);
   }
 
+let currentUserId = '';
+
   function goConv(userId, name) {
+    currentUserId = userId;
     if (timer) clearInterval(timer);
     document.getElementById('conv-name').textContent = name || 'Client';
     document.getElementById('conv-phone').textContent = userId;
@@ -227,6 +236,22 @@
       } else {
         ml.innerHTML = '<div class="empty">Aucun message</div>';
       }
+    })
+    .catch(console.error);
+  }
+
+  function sendReply() {
+    const msg = document.getElementById('reply-input').value.trim();
+    if (!msg || !currentUserId) return;
+    fetch('/dashboard/reply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ userId: currentUserId, message: msg })
+    })
+    .then(r => r.json())
+    .then(() => {
+      document.getElementById('reply-input').value = '';
+      goConv(currentUserId, document.getElementById('conv-name').textContent);
     })
     .catch(console.error);
   }

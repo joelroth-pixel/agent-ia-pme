@@ -221,6 +221,20 @@ app.post('/webhook', async (req, res) => {
   res.status(200).send('OK');
 });
 
+
+app.post('/dashboard/reply', authMiddleware, async (req, res) => {
+  try {
+    const { userId, message } = req.body;
+    const configs = getAllConfigs();
+    const clientId = Object.keys(configs)[0];
+    await sendMessage('whatsapp:' + userId, message);
+    await saveMessage(clientId, userId, 'assistant', message);
+    console.log('[REPLY] Message envoye a ' + userId);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 app.get('/relance-test', async (req, res) => {
   const { verifierRelances } = require('./relance');
   for (const userId in global.prospectsEnAttente) {
