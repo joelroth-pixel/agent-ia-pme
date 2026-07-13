@@ -35,6 +35,13 @@ const conversationSchema = new mongoose.Schema({
 });
 
 const Stats = mongoose.model('Stats', statsSchema);
+const notifiedSchema = new mongoose.Schema({
+  clientId: String,
+  userId: String,
+  type: String
+});
+const Notified = mongoose.model('Notified', notifiedSchema);
+
 const dailySchema = new mongoose.Schema({
   clientId: String,
   date: String,
@@ -182,4 +189,13 @@ async function getWeeklyDaily(clientId) {
     return { date, label, messages: found ? found.messages : 0, prospects: found ? found.prospects : 0, urgences: found ? found.urgences : 0 };
   });
 }
-module.exports = { connectDB, incrementDaily, getWeeklyDaily, pauseConversation, isConversationPaused, getStats, incrementStats, savePushSubscription, getPushSubscriptions, removePushSubscription, getSettings, saveSettings, saveMessage, updateConversationStatus, getConversations, getConversation };
+
+async function isNotifiedDB(clientId, userId, type) {
+  const found = await Notified.findOne({ clientId, userId, type });
+  return !!found;
+}
+
+async function markNotifiedDB(clientId, userId, type) {
+  await Notified.findOneAndUpdate({ clientId, userId, type }, { clientId, userId, type }, { upsert: true });
+}
+module.exports = { connectDB, isNotifiedDB, markNotifiedDB, incrementDaily, getWeeklyDaily, pauseConversation, isConversationPaused, getStats, incrementStats, savePushSubscription, getPushSubscriptions, removePushSubscription, getSettings, saveSettings, saveMessage, updateConversationStatus, getConversations, getConversation };

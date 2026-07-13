@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { envoyerRapport } = require('./rapport');
 const { ajouterProspect, demarrerRelances } = require('./relance');
-const { connectDB, incrementStats, getStats, savePushSubscription, getPushSubscriptions, removePushSubscription, getSettings, saveSettings, saveMessage, updateConversationStatus, getConversations, getConversation, pauseConversation, isConversationPaused, incrementDaily, getWeeklyDaily } = require('./database');
+const { connectDB, incrementStats, getStats, savePushSubscription, getPushSubscriptions, removePushSubscription, getSettings, saveSettings, saveMessage, updateConversationStatus, getConversations, getConversation, pauseConversation, isConversationPaused, incrementDaily, getWeeklyDaily, isNotifiedDB, markNotifiedDB } = require('./database');
 const { getClientConfig, getAllConfigs } = require('../clients/index');
 const express = require('express');
 const path = require('path');
@@ -220,21 +220,29 @@ app.post('/webhook', async (req, res) => {
     await saveMessage(clientId, userId, 'assistant', finalReply);
 
     if (isUrgent) {
-      await updateConversationStatus(clientId, userId, 'urgence');
-      await envoyerPushNotification(clientId, 'Urgence client !', 'Numero : ' + userId + ' - ' + userMessage.slice(0, 50));
-      if (global.statsHebdo) global.statsHebdo.urgences++;
-      await incrementStats('urgences', null, clientId);
-      await incrementDaily('urgences', clientId);
+      const dejaUrgence = await isNotifiedDB(clientId, userId, 'urgence');
+      if (!dejaUrgence) {
+        await updateConversationStatus(clientId, userId, 'urgence');
+        await envoyerPushNotification(clientId, 'Urgence client !', 'Numero : ' + userId + ' - ' + userMessage.slice(0, 50));
+        if (global.statsHebdo) global.statsHebdo.urgences++;
+        await incrementStats('urgences', null, clientId);
+        await incrementDaily('urgences', clientId);
+        await markNotifiedDB(clientId, userId, 'urgence');
+      }
     }
 
     if (isLeadReady && leadInfo) {
-      await updateConversationStatus(clientId, userId, 'prospect', leadInfo.name);
-      global.statsHebdo.prospects++;
-      global.statsHebdo.prospectsList.push({ name: leadInfo.name || 'Inconnu', phone: userId });
-      await incrementStats('prospects', { name: leadInfo.name || 'Inconnu', phone: userId }, clientId);
-      await incrementDaily('prospects', clientId);
-      ajouterProspect(userId, leadInfo.name, leadInfo.rawText);
-      await envoyerPushNotification(clientId, 'Nouveau prospect !', (leadInfo.name || 'Client') + ' - ' + userId);
+      const dejaNotifie = await isNotifiedDB(clientId, userId, 'prospect');
+      if (!dejaNotifie) {
+        await updateConversationStatus(clientId, userId, 'prospect', leadInfo.name);
+        global.statsHebdo.prospects++;
+        global.statsHebdo.prospectsList.push({ name: leadInfo.name || 'Inconnu', phone: userId });
+        await incrementStats('prospects', { name: leadInfo.name || 'Inconnu', phone: userId }, clientId);
+        await incrementDaily('prospects', clientId);
+        ajouterProspect(userId, leadInfo.name, leadInfo.rawText);
+        await envoyerPushNotification(clientId, 'Nouveau prospect !', (leadInfo.name || 'Client') + ' - ' + userId);
+        await markNotifiedDB(clientId, userId, 'prospect');
+      }
     }
   } catch (error) {
     console.error('Erreur agent IA :', error);
