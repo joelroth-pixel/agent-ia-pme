@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const statsSchema = new mongoose.Schema({
   semaine: String,
+  clientId: String,
   messages: { type: Number, default: 0 },
   prospects: { type: Number, default: 0 },
   urgences: { type: Number, default: 0 },
