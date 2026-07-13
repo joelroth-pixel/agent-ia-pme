@@ -77,7 +77,8 @@
     .badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; }
     .badge-prospect { background:var(--green-pale); color:var(--green); }
     .badge-urgence { background:var(--red-pale); color:var(--red); }
-    .badge-normal { background:var(--grey-pale); color:var(--grey); }
+    .badge-normal { background:var(--grey-pale); color:var(--grey); .filter-btn { padding:6px 14px; border-radius:20px; border:1.5px solid var(--border); background:white; font-size:12px; font-weight:600; cursor:pointer; color:var(--grey); transition:all 0.2s; }
+.filter-btn.active { background:var(--blue); color:white; border-color:var(--blue); } }
 
     /* TOGGLE */
     .toggle-row { display:flex; align-items:center; justify-content:space-between; padding:4px 0; }
@@ -152,6 +153,12 @@
     </div>
     <div class="card">
       <div class="card-title">Conversations récentes</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+        <button class="filter-btn active" onclick="filtrer('tous')" id="f-tous">Tous</button>
+        <button class="filter-btn" onclick="filtrer('urgence')" id="f-urgence">🔴 Urgences</button>
+        <button class="filter-btn" onclick="filtrer('prospect')" id="f-prospect">🟢 Prospects</button>
+        <button class="filter-btn" onclick="filtrer('normal')" id="f-normal">⚫ Normal</button>
+      </div>
       <div id="conv-list"><div class="empty">Aucune conversation</div></div>
     </div>
     <div class="card">
@@ -196,6 +203,7 @@
 </div>
 
 <script>
+  let filtreActif = 'tous';
   let token = localStorage.getItem('t') || '';
   let timer = null;
   let currentUserId = '';
@@ -260,8 +268,10 @@
       document.getElementById('vac-toggle').checked=d.vacancesMode||false;
       document.getElementById('vac-desc').textContent=d.vacancesMode?'Mode vacances actif':"L'agent répond normalement";
       const cl=document.getElementById('conv-list');
-      if(d.conversations&&d.conversations.length>0){
-        cl.innerHTML=d.conversations.map(c=>{
+      let convs = d.conversations || [];
+if (filtreActif !== 'tous') convs = convs.filter(c => c.status === filtreActif);
+if(convs&&convs.length>0){
+        cl.innerHTML=convs.map(c=>{
           const init=(c.name||'C').charAt(0).toUpperCase();
           const st=c.status||'normal';
           const stLabel=st==='prospect'?'Prospect':st==='urgence'?'Urgence':'Normal';
@@ -279,7 +289,12 @@
     })
     .catch(console.error);
   }
-
+  function filtrer(statut) {
+  filtreActif = statut;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('f-' + statut).classList.add('active');
+  loadData();
+}
   function goConv(userId, name) {
     currentUserId=userId;
     if(timer) clearInterval(timer);
