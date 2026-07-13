@@ -366,7 +366,6 @@
   function logout() {
     localStorage.removeItem('t');
     localStorage.removeItem('vac');
-    localStorage.removeItem('push');
     token='';
     if(timer) clearInterval(timer);
     show('page-login');
