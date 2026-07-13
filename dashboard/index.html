@@ -231,6 +231,20 @@
     loadData();
     if(timer) clearInterval(timer);
     timer=setInterval(loadData,30000);
+    if (localStorage.getItem('push') === '1') {
+  document.getElementById('notif-toggle').checked = true;
+  document.getElementById('notif-desc').textContent = 'Activees';
+  // Reabonne automatiquement si subscription perdue
+  navigator.serviceWorker.ready.then(reg => {
+    reg.pushManager.getSubscription().then(sub => {
+      if (!sub) {
+        localStorage.removeItem('push');
+        document.getElementById('notif-toggle').checked = false;
+        document.getElementById('notif-desc').textContent = 'Reactivation requise';
+      }
+    });
+  });
+}
   }
 
   function loadData() {
