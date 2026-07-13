@@ -151,6 +151,24 @@
         <div class="stat-box red"><div class="stat-num" id="s-urg">0</div><div class="stat-lbl">Urgences</div></div>
       </div>
     </div>
+
+    <div class="card">
+      <div class="card-title">Messages par jour</div>
+      <canvas id="chart-bar" height="120"></canvas>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Repartition</div>
+      <div style="max-width:200px;margin:0 auto;">
+        <canvas id="chart-pie"></canvas>
+      </div>
+    </div>
+      <div class="stats-grid">
+        <div class="stat-box blue"><div class="stat-num" id="s-msg">0</div><div class="stat-lbl">Messages</div></div>
+        <div class="stat-box green"><div class="stat-num" id="s-pro">0</div><div class="stat-lbl">Prospects</div></div>
+        <div class="stat-box red"><div class="stat-num" id="s-urg">0</div><div class="stat-lbl">Urgences</div></div>
+      </div>
+    </div>
     <div class="card">
       <div class="card-title">Conversations récentes</div>
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
@@ -265,6 +283,7 @@
       document.getElementById('s-pro').textContent=d.stats.prospects||0;
       document.getElementById('s-urg').textContent=d.stats.urgences||0;
       document.getElementById('last-up').textContent="Mis à jour : "+new Date().toLocaleTimeString('fr-CH');
+      if(d.weeklyData) updateCharts(d.weeklyData, d.stats);
       document.getElementById('vac-toggle').checked=d.vacancesMode||false;
       document.getElementById('vac-desc').textContent=d.vacancesMode?'Mode vacances actif':"L'agent répond normalement";
       const cl=document.getElementById('conv-list');
@@ -388,7 +407,55 @@ if(convs&&convs.length>0){
 
   if(token) goMain(); else show('page-login');
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+  let barChart = null;
+  let pieChart = null;
 
+  function updateCharts(weeklyData, stats) {
+    const labels = weeklyData.map(d => d.label);
+    const messages = weeklyData.map(d => d.messages);
+    const prospects = weeklyData.map(d => d.prospects);
+    const urgences = weeklyData.map(d => d.urgences);
+
+    if (barChart) barChart.destroy();
+    barChart = new Chart(document.getElementById('chart-bar'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Messages', data: messages, backgroundColor: '#eff6ff', borderColor: '#1e3a5f', borderWidth: 2, borderRadius: 6 },
+          { label: 'Prospects', data: prospects, backgroundColor: '#dcfce7', borderColor: '#16a34a', borderWidth: 2, borderRadius: 6 },
+          { label: 'Urgences', data: urgences, backgroundColor: '#fee2e2', borderColor: '#dc2626', borderWidth: 2, borderRadius: 6 }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } },
+        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+      }
+    });
+
+    if (pieChart) pieChart.destroy();
+    const total = (stats.messages || 0) + (stats.prospects || 0) + (stats.urgences || 0);
+    pieChart = new Chart(document.getElementById('chart-pie'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Messages', 'Prospects', 'Urgences'],
+        datasets: [{
+          data: [stats.messages || 0, stats.prospects || 0, stats.urgences || 0],
+          backgroundColor: ['#1e3a5f', '#16a34a', '#dc2626'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } },
+        cutout: '65%'
+      }
+    });
+  }
+</script>
 <script>
   if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 </script>

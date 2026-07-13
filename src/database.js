@@ -35,6 +35,15 @@ const conversationSchema = new mongoose.Schema({
 });
 
 const Stats = mongoose.model('Stats', statsSchema);
+const dailySchema = new mongoose.Schema({
+  clientId: String,
+  date: String,
+  messages: { type: Number, default: 0 },
+  prospects: { type: Number, default: 0 },
+  urgences: { type: Number, default: 0 }
+});
+const Daily = mongoose.model('Daily', dailySchema);
+
 const pauseSchema = new mongoose.Schema({
   clientId: String,
   userId: String,
@@ -148,4 +157,29 @@ async function isConversationPaused(clientId, userId) {
   }
   return true;
 }
-module.exports = { connectDB, pauseConversation, isConversationPaused, getStats, incrementStats, savePushSubscription, getPushSubscriptions, removePushSubscription, getSettings, saveSettings, saveMessage, updateConversationStatus, getConversations, getConversation };
+
+async function incrementDaily(field, clientId) {
+  const date = new Date().toISOString().slice(0, 10);
+  await Daily.findOneAndUpdate(
+    { clientId, date },
+    { $inc: { [field]: 1 } },
+    { upsert: true }
+  );
+}
+
+async function getWeeklyDaily(clientId) {
+  const now = new Date();
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  const results = await Daily.find({ clientId, date: { $in: days } });
+  return days.map(date => {
+    const found = results.find(r => r.date === date);
+    const label = new Date(date).toLocaleDateString('fr-CH', { weekday: 'short' });
+    return { date, label, messages: found ? found.messages : 0, prospects: found ? found.prospects : 0, urgences: found ? found.urgences : 0 };
+  });
+}
+module.exports = { connectDB, incrementDaily, getWeeklyDaily, pauseConversation, isConversationPaused, getStats, incrementStats, savePushSubscription, getPushSubscriptions, removePushSubscription, getSettings, saveSettings, saveMessage, updateConversationStatus, getConversations, getConversation };
