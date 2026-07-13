@@ -34,6 +34,13 @@ const conversationSchema = new mongoose.Schema({
 });
 
 const Stats = mongoose.model('Stats', statsSchema);
+const pauseSchema = new mongoose.Schema({
+  clientId: String,
+  userId: String,
+  pausedUntil: Date
+});
+const Pause = mongoose.model('Pause', pauseSchema);
+
 const PushSub = mongoose.model('PushSub', pushSchema);
 const Settings = mongoose.model('Settings', settingsSchema);
 const Conversation = mongoose.model('Conversation', conversationSchema);
@@ -125,4 +132,19 @@ async function getConversation(clientId, userId) {
   return await Conversation.findOne({ clientId, userId });
 }
 
-module.exports = { connectDB, getStats, incrementStats, savePushSubscription, getPushSubscriptions, removePushSubscription, getSettings, saveSettings, saveMessage, updateConversationStatus, getConversations, getConversation };
+
+async function pauseConversation(clientId, userId, hours) {
+  const pausedUntil = new Date(Date.now() + hours * 60 * 60 * 1000);
+  await Pause.findOneAndUpdate({ clientId, userId }, { clientId, userId, pausedUntil }, { upsert: true });
+}
+
+async function isConversationPaused(clientId, userId) {
+  const pause = await Pause.findOne({ clientId, userId });
+  if (!pause) return false;
+  if (new Date() > pause.pausedUntil) {
+    await Pause.deleteOne({ clientId, userId });
+    return false;
+  }
+  return true;
+}
+module.exports = { connectDB, pauseConversation, isConversationPaused, getStats, incrementStats, savePushSubscription, getPushSubscriptions, removePushSubscription, getSettings, saveSettings, saveMessage, updateConversationStatus, getConversations, getConversation };

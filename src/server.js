@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { envoyerRapport } = require('./rapport');
 const { ajouterProspect, demarrerRelances } = require('./relance');
-const { connectDB, incrementStats, getStats, savePushSubscription, getPushSubscriptions, removePushSubscription, getSettings, saveSettings, saveMessage, updateConversationStatus, getConversations, getConversation } = require('./database');
+const { connectDB, incrementStats, getStats, savePushSubscription, getPushSubscriptions, removePushSubscription, getSettings, saveSettings, saveMessage, updateConversationStatus, getConversations, getConversation, pauseConversation, isConversationPaused } = require('./database');
 const { getClientConfig, getAllConfigs } = require('../clients/index');
 const express = require('express');
 const path = require('path');
@@ -190,6 +190,14 @@ app.post('/webhook', async (req, res) => {
     return res.status(200).send('OK');
   }
 
+  // Verifie si la conversation est en pause
+  const paused = await isConversationPaused(clientId, userId);
+  if (paused) {
+    console.log('[PAUSE] Message de ' + userId + ' ignore - patron a pris la main');
+    await saveMessage(clientId, userId, 'user', userMessage);
+    return res.status(200).send('OK');
+  }
+
   global.statsHebdo.messages++;
   await incrementStats('messages', null, clientId);
   await saveMessage(clientId, userId, 'user', userMessage);
@@ -238,7 +246,8 @@ app.post('/dashboard/reply', authMiddleware, async (req, res) => {
     const clientId = req.clientId || Object.keys(configs)[0];
     await sendMessage('whatsapp:' + userId, message);
     await saveMessage(clientId, userId, 'assistant', message);
-    console.log('[REPLY] Message envoye a ' + userId);
+    await pauseConversation(clientId, userId, 2);
+    console.log('[REPLY] Message envoye a ' + userId + ' - agent en pause 2h');
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
